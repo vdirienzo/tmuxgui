@@ -1,0 +1,30 @@
+[project]
+name = "gnome-tmux"
+version = "0.1.0"
+description = "GNOME native frontend for tmux"
+authors = [
+    { name = "Homero Thompson del Lago del Terror" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+# Note: PyGObject, GTK4, Libadwaita and VTE must be installed via system packages:
+# apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-vte-3.91
+
+[project.scripts]
+gnome-tmux = "gnome_tmux.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gnome_tmux"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E402"]  # Necesario para gi.require_version antes de imports

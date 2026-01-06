@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=TmuxGUI
+Comment=GNOME frontend for tmux session management
+Exec=python3 -c "import sys; sys.path.insert(0, '/home/user/projects/tmuxgui/src'); from gnome_tmux.main import main; main()"
+Icon=com.github.gnome-tmux
+Terminal=false
+Type=Application
+Categories=System;TerminalEmulator;Utility;
+Keywords=terminal;tmux;session;
+StartupNotify=true
