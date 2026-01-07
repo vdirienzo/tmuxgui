@@ -68,6 +68,13 @@ class MainWindow(Adw.ApplicationWindow):
         self.file_tree_button.connect("toggled", self._on_file_tree_toggled)
         header.pack_start(self.file_tree_button)
 
+        # Botón de ayuda (derecha)
+        help_button = Gtk.Button()
+        help_button.set_icon_name("help-about-symbolic")
+        help_button.set_tooltip_text("Help & About")
+        help_button.connect("clicked", self._on_help_clicked)
+        header.pack_end(help_button)
+
         # CSS personalizado
         css_provider = Gtk.CssProvider()
         css_provider.load_from_data(b"""
@@ -781,6 +788,150 @@ class MainWindow(Adw.ApplicationWindow):
         if total_height > 0:
             new_pos = total_height - current_pos
             self.left_paned.set_position(new_pos)
+
+    def _on_help_clicked(self, button: Gtk.Button):
+        """Muestra el diálogo de ayuda."""
+        dialog = Adw.Window(transient_for=self)
+        dialog.set_title("Help - gnome-tmux")
+        dialog.set_default_size(500, 600)
+        dialog.set_modal(True)
+
+        # Toolbar view
+        toolbar_view = Adw.ToolbarView()
+        dialog.set_content(toolbar_view)
+
+        # Header
+        header = Adw.HeaderBar()
+        header.set_show_end_title_buttons(True)
+        toolbar_view.add_top_bar(header)
+
+        # Scroll principal
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+
+        # Contenido
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        content.set_margin_top(24)
+        content.set_margin_bottom(24)
+        content.set_margin_start(24)
+        content.set_margin_end(24)
+
+        # Logo y título
+        logo_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        logo_box.set_halign(Gtk.Align.CENTER)
+
+        logo = Gtk.Image.new_from_icon_name("utilities-terminal-symbolic")
+        logo.set_pixel_size(64)
+        logo_box.append(logo)
+
+        title = Gtk.Label(label="gnome-tmux")
+        title.add_css_class("title-1")
+        logo_box.append(title)
+
+        version = Gtk.Label(label="Version 0.2.0")
+        version.add_css_class("dim-label")
+        logo_box.append(version)
+
+        subtitle = Gtk.Label(label="GNOME native frontend for tmux")
+        subtitle.add_css_class("dim-label")
+        logo_box.append(subtitle)
+
+        content.append(logo_box)
+        content.append(Gtk.Separator())
+
+        # Sección: Features
+        features_group = Adw.PreferencesGroup(title="Features")
+
+        features = [
+            ("Session Management", "Create, rename, delete tmux sessions"),
+            ("Window Management", "Create, rename, close and reorder windows"),
+            ("Integrated Terminal", "VTE terminal with full tmux support"),
+            ("File Browser", "Navigate filesystem with CRUD operations"),
+            ("Drag & Drop", "Reorder windows and sidebar sections"),
+        ]
+
+        for title_text, desc in features:
+            row = Adw.ActionRow(title=title_text, subtitle=desc)
+            row.set_activatable(False)
+            features_group.add(row)
+
+        content.append(features_group)
+
+        # Sección: Keyboard Shortcuts
+        shortcuts_group = Adw.PreferencesGroup(title="Keyboard Shortcuts")
+
+        shortcuts = [
+            ("F9", "Toggle sessions sidebar"),
+            ("F10", "Toggle file browser"),
+            ("Ctrl+B d", "Detach from tmux session"),
+            ("Ctrl+B c", "Create new window (in tmux)"),
+            ("Ctrl+B n / p", "Next / Previous window"),
+            ("Ctrl+B %", "Split pane horizontally"),
+            ("Ctrl+B \"", "Split pane vertically"),
+        ]
+
+        for shortcut, desc in shortcuts:
+            row = Adw.ActionRow(title=shortcut, subtitle=desc)
+            row.set_activatable(False)
+            shortcuts_group.add(row)
+
+        content.append(shortcuts_group)
+
+        # Sección: Usage Tips
+        tips_group = Adw.PreferencesGroup(title="Quick Start")
+
+        tips = [
+            ("1. Create a session", "Click + button in the sidebar header"),
+            ("2. Select a window", "Click on any window to attach terminal"),
+            ("3. Work in terminal", "Use standard tmux keybindings"),
+            ("4. Detach", "Press Ctrl+B d to detach from session"),
+        ]
+
+        for tip_title, tip_desc in tips:
+            row = Adw.ActionRow(title=tip_title, subtitle=tip_desc)
+            row.set_activatable(False)
+            tips_group.add(row)
+
+        content.append(tips_group)
+
+        content.append(Gtk.Separator())
+
+        # Sección: About
+        about_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        about_box.set_halign(Gtk.Align.CENTER)
+
+        author_label = Gtk.Label(label="Author")
+        author_label.add_css_class("heading")
+        about_box.append(author_label)
+
+        author_name = Gtk.Label(label="Homero Thompson del Lago del Terror")
+        about_box.append(author_name)
+
+        content.append(about_box)
+
+        # Copyright
+        copyright_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        copyright_box.set_halign(Gtk.Align.CENTER)
+        copyright_box.set_margin_top(12)
+
+        copyright_label = Gtk.Label(label="Copyright 2026")
+        copyright_label.add_css_class("dim-label")
+        copyright_box.append(copyright_label)
+
+        license_label = Gtk.Label(label="MIT License")
+        license_label.add_css_class("dim-label")
+        copyright_box.append(license_label)
+
+        github_label = Gtk.Label(label="github.com/vdirienzo/gnome-tmux")
+        github_label.add_css_class("dim-label")
+        copyright_box.append(github_label)
+
+        content.append(copyright_box)
+
+        scrolled.set_child(content)
+        toolbar_view.set_content(scrolled)
+
+        dialog.present()
 
     def do_close_request(self) -> bool:
         """Maneja el cierre de la ventana."""
