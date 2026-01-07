@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=TmuxGUI
+Comment=GNOME native frontend for tmux
+Exec=tmuxgui
+Icon=org.gnome.TmuxGUI
+Terminal=false
+Type=Application
+Categories=GNOME;GTK;System;TerminalEmulator;Utility;
+Keywords=tmux;terminal;session;multiplexer;
+StartupNotify=true

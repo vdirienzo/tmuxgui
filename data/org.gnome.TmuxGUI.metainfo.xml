@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.gnome.TmuxGUI</id>
+
+  <name>TmuxGUI</name>
+  <summary>GNOME native frontend for tmux</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      TmuxGUI is a modern, native GNOME application that provides a graphical
+      interface for managing tmux sessions, windows, and terminals.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>Session management: create, rename, delete tmux sessions</li>
+      <li>Window management: create, rename, close and reorder windows</li>
+      <li>Integrated VTE terminal with full tmux support</li>
+      <li>File browser with search and favorites</li>
+      <li>Drag and drop support for reordering</li>
+      <li>Native GNOME/Libadwaita look and feel</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">org.gnome.TmuxGUI.desktop</launchable>
+
+  <screenshots>
+    <screenshot type="default">
+      <caption>Main window with session sidebar and terminal</caption>
+      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/main.png</image>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://github.com/vdirienzo/gnome-tmux</url>
+  <url type="bugtracker">https://github.com/vdirienzo/gnome-tmux/issues</url>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.2.0" date="2026-01-06">
+      <description>
+        <p>Initial release with full session and window management.</p>
+      </description>
+    </release>
+  </releases>
+
+  <developer_name>Homero Thompson del Lago del Terror</developer_name>
+
+  <kudos>
+    <kudo>ModernToolkit</kudo>
+    <kudo>HiDpiIcon</kudo>
+  </kudos>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+
+  <recommends>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </recommends>
+</component>

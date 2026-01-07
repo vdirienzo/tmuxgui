@@ -187,6 +187,28 @@ cd gnome-tmux
 ./run.py
 ```
 
+### Flatpak (Universal)
+
+```bash
+# Install flatpak-builder if needed
+sudo apt install flatpak flatpak-builder  # Debian/Ubuntu
+sudo dnf install flatpak flatpak-builder  # Fedora
+
+# Add Flathub repository
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+# Install GNOME SDK
+flatpak install flathub org.gnome.Platform//46 org.gnome.Sdk//46
+
+# Clone and build
+git clone https://github.com/vdirienzo/gnome-tmux.git
+cd gnome-tmux
+./build-flatpak.sh
+
+# Run
+flatpak run org.gnome.TmuxGUI
+```
+
 ## Usage
 
 ### Basic Workflow

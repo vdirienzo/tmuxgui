@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Background rounded rectangle -->
+  <rect x="8" y="8" width="112" height="112" rx="16" ry="16" fill="#3584e4"/>
+
+  <!-- Terminal window background -->
+  <rect x="20" y="28" width="88" height="72" rx="4" ry="4" fill="#1e1e1e"/>
+
+  <!-- Terminal header bar -->
+  <rect x="20" y="28" width="88" height="12" rx="4" ry="4" fill="#3d3d3d"/>
+  <rect x="20" y="36" width="88" height="4" fill="#3d3d3d"/>
+
+  <!-- Window buttons -->
+  <circle cx="30" cy="34" r="3" fill="#ff5f57"/>
+  <circle cx="40" cy="34" r="3" fill="#febc2e"/>
+  <circle cx="50" cy="34" r="3" fill="#28c840"/>
+
+  <!-- Tmux split line (vertical) -->
+  <line x1="64" y1="44" x2="64" y2="96" stroke="#3584e4" stroke-width="2"/>
+
+  <!-- Left pane prompt -->
+  <text x="26" y="58" font-family="monospace" font-size="10" fill="#33d17a">$</text>
+  <rect x="34" y="50" width="20" height="8" rx="1" fill="#33d17a" opacity="0.6"/>
+
+  <!-- Right pane prompt -->
+  <text x="70" y="58" font-family="monospace" font-size="10" fill="#33d17a">$</text>
+  <rect x="78" y="50" width="24" height="8" rx="1" fill="#33d17a" opacity="0.6"/>
+
+  <!-- Cursor blink on left -->
+  <rect x="26" y="66" width="6" height="10" fill="#ffffff" opacity="0.8"/>
+</svg>

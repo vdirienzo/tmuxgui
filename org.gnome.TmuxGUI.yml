@@ -1,0 +1,42 @@
+app-id: org.gnome.TmuxGUI
+runtime: org.gnome.Platform
+runtime-version: '46'
+sdk: org.gnome.Sdk
+command: tmuxgui
+
+finish-args:
+  # Display
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  # Home directory access (file browser + tmux)
+  - --filesystem=home
+  # Tmp for tmux sockets
+  - --filesystem=/tmp
+  # Host tmux binary
+  - --filesystem=/usr/bin/tmux:ro
+  - --env=PATH=/app/bin:/usr/bin
+
+modules:
+  # PyGObject (usually in runtime, but ensure it's there)
+  - name: python3-pygobject
+    buildsystem: simple
+    build-commands:
+      - pip3 install --prefix=/app --no-deps pycairo PyGObject
+    sources: []
+
+  # Main application
+  - name: tmuxgui
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/share/tmuxgui
+      - cp -r src/gnome_tmux /app/share/tmuxgui/
+      - cp run.py /app/share/tmuxgui/
+      - install -Dm755 tmuxgui.sh /app/bin/tmuxgui
+      - install -Dm644 data/org.gnome.TmuxGUI.desktop /app/share/applications/org.gnome.TmuxGUI.desktop
+      - install -Dm644 data/org.gnome.TmuxGUI.metainfo.xml /app/share/metainfo/org.gnome.TmuxGUI.metainfo.xml
+      - install -Dm644 data/org.gnome.TmuxGUI.svg /app/share/icons/hicolor/scalable/apps/org.gnome.TmuxGUI.svg
+    sources:
+      - type: dir
+        path: .
