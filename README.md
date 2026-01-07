@@ -14,38 +14,97 @@
 ## Features
 
 ### Session Management
-- List all tmux sessions with attached/detached status
-- Create new sessions with custom names
-- Delete sessions with confirmation dialog
-- Rename sessions inline
-- Drag and drop to reorder sidebar sections
+
+| Feature | Description |
+|---------|-------------|
+| **List sessions** | Shows all tmux sessions with attached/detached status |
+| **Create session** | Dialog to create new session with custom name |
+| **Delete session** | Confirmation dialog before terminating session |
+| **Rename session** | Inline rename via edit button |
+| **Auto-refresh** | Sessions update every 5 seconds automatically |
+| **Visual indicators** | Play icon for attached sessions, terminal icon for detached |
+| **Expandable tree** | Click session to expand and see all windows |
 
 ### Window Management
-- View all windows per session (expandable tree)
-- Create new windows in any session
-- Rename windows
-- Close windows (sends `exit` command)
-- Drag and drop to reorder windows within a session
-- Click to attach terminal to specific window
+
+| Feature | Description |
+|---------|-------------|
+| **List windows** | Shows all windows per session in expandable tree |
+| **Create window** | Add new windows with optional custom name |
+| **Rename window** | Edit button to rename any window |
+| **Close window** | Sends `exit` command for clean shutdown |
+| **Drag & drop** | Reorder windows within a session by dragging |
+| **Visual indicators** | Active window shown in bold with accent color |
+| **Quick attach** | Click any window to attach terminal immediately |
 
 ### Integrated Terminal
-- Embedded VTE terminal
-- Auto-attaches to selected session/window
-- Full tmux keybinding support
-- Detach returns to welcome screen
+
+| Feature | Description |
+|---------|-------------|
+| **VTE terminal** | Full-featured embedded terminal emulator |
+| **Auto-attach** | Automatically connects to selected session/window |
+| **tmux keybindings** | Full support for all tmux shortcuts |
+| **Split panes** | Toolbar buttons for horizontal/vertical splits |
+| **Detach handling** | Returns to welcome screen on `Ctrl+B d` |
 
 ### File Browser
-- Integrated file tree sidebar
-- Navigate filesystem
-- Create files and folders
-- Rename and delete with confirmation
-- Drag and drop sections to customize layout
+
+The integrated file browser provides VS Code-style navigation:
+
+#### Navigation
+| Feature | Description |
+|---------|-------------|
+| **Home button** | Jump to home directory |
+| **Up button** | Navigate to parent directory |
+| **Collapse all** | Collapse all expanded directories |
+| **Recursive tree** | Expand/collapse folders inline |
+| **Hidden files** | Automatically hidden (dotfiles) |
+
+#### Search
+| Mode | Description |
+|------|-------------|
+| **By name** | Find files matching name pattern (`find`) |
+| **By regex** | Search using regular expressions |
+| **By content** | Search file contents (`grep`) |
+
+#### Favorites System
+| Feature | Description |
+|---------|-------------|
+| **Add to favorites** | Star button or context menu |
+| **Quick navigation** | Jump to favorite folders instantly |
+| **Persistent storage** | Saved in `~/.config/gnome-tmux/favorites.json` |
+| **Remove favorites** | Delete from favorites menu |
+
+#### Context Menu (Right-click)
+| Action | Description |
+|--------|-------------|
+| **Copy** | Copy file/folder to internal clipboard |
+| **Paste** | Paste copied item (auto-rename on conflict) |
+| **Copy Path** | Copy absolute path to system clipboard |
+| **Copy Relative Path** | Copy path relative to current root |
+| **New Folder** | Create new directory (folders only) |
+| **Add to Favorites** | Add folder to favorites (folders only) |
+| **Rename** | Rename file or folder via dialog |
+| **Delete** | Move to `~/.trash` (safe delete) |
+
+#### Drag & Drop
+| Feature | Description |
+|---------|-------------|
+| **Drag files** | Drag any file/folder to copy path |
+| **Search results** | Navigate to file location button |
 
 ### UI/UX
-- Native GNOME look and feel with Libadwaita
-- Adaptive layout
-- Visual feedback for active sessions/windows
-- Drag handles for reorderable elements
+
+| Feature | Description |
+|---------|-------------|
+| **GNOME native** | GTK4 + Libadwaita design language |
+| **Adaptive layout** | Resizable sidebars with paned containers |
+| **Toggle sidebars** | `F9` for sessions, `F10` for file browser |
+| **Animated transitions** | Smooth open/close animations |
+| **Auto-show sidebar** | Move cursor to left edge to reveal hidden sidebar |
+| **Section reordering** | Drag handle to swap Sessions/Files positions |
+| **Toast notifications** | Non-intrusive feedback messages |
+| **Compact rows** | Custom CSS for dense information display |
 
 ## Screenshots
 
@@ -145,6 +204,15 @@ cd gnome-tmux
 
 ### Keyboard Shortcuts
 
+#### Application Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `F9` | Toggle sessions sidebar |
+| `F10` | Toggle file browser sidebar |
+
+#### tmux Shortcuts (in terminal)
+
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+B d` | Detach from tmux session |
@@ -153,6 +221,11 @@ cd gnome-tmux
 | `Ctrl+B p` | Previous window |
 | `Ctrl+B %` | Split pane horizontally |
 | `Ctrl+B "` | Split pane vertically |
+| `Ctrl+B o` | Cycle through panes |
+| `Ctrl+B x` | Kill current pane |
+| `Ctrl+B z` | Toggle pane zoom |
+| `Ctrl+B [` | Enter copy mode |
+| `Ctrl+B ]` | Paste from buffer |
 
 *Standard tmux keybindings work in the embedded terminal*
 
@@ -307,14 +380,52 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 ### [0.2.0] - 2026-01-06
 
 #### Added
-- Window management (create, rename, close windows)
-- Drag and drop for windows within sessions
-- Drag and drop for sidebar sections (Sessions/Files)
-- File tree browser with CRUD operations
-- Inline rename for sessions and windows
-- Visual indicators for active windows
+
+**Session Management**
+- Session rename functionality with edit button
+- Visual indicator for attached sessions (play icon)
+- Auto-expand attached sessions on startup
+- Preserved expansion state across refreshes
+
+**Window Management**
+- Create new windows in any session
+- Rename windows with edit button
+- Close windows with `exit` command (clean shutdown)
+- Drag and drop to reorder windows within session
+- Visual indicators for active window (bold + accent)
+- Click to attach terminal to specific window
+
+**File Browser**
+- VS Code-style file tree with recursive expansion
+- Navigation buttons: Home, Up, Collapse All
+- Search modes: by name, regex, or content (grep)
+- Favorites system with persistent storage (`~/.config/gnome-tmux/favorites.json`)
+- Complete context menu:
+  - Copy/Paste files and folders
+  - Copy Path (absolute)
+  - Copy Relative Path
+  - New Folder creation
+  - Add to Favorites
+  - Rename with dialog
+  - Delete (moves to `~/.trash`)
+- Drag and drop files to copy path
+- Search results with "Go to location" button
+- Hidden files automatically filtered (dotfiles)
+
+**Terminal**
+- Split pane buttons (horizontal/vertical)
+
+**UI/UX**
+- Animated sidebar transitions
+- Auto-show sidebar on cursor at left edge
+- Drag handles for section reordering
+- Sessions/Files sections swappable via drag
+- Toast notifications for feedback
+- Custom CSS for compact row display
+- F9/F10 keyboard shortcuts for sidebar toggles
 
 #### Changed
+- Sessions and Files in vertical split (30%/70%)
 - Improved session row with expandable windows
 - Better drag handle visibility
 
@@ -322,11 +433,12 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 #### Added
 - Initial MVP release
-- Session listing with auto-refresh
-- Session creation dialog
-- Session deletion with confirmation
-- Embedded VTE terminal
-- Attach to tmux sessions
+- Session listing with 5-second auto-refresh
+- Session creation dialog with custom name
+- Session deletion with confirmation dialog
+- Embedded VTE terminal with tmux attach
+- Basic sidebar with session list
+- Placeholder for empty state
 
 ## License
 
