@@ -121,10 +121,12 @@ The integrated file browser provides VS Code-style navigation:
   <tr>
     <td><img src="screenshots/01.png" alt="Screenshot 1"></td>
     <td><img src="screenshots/02.png" alt="Screenshot 2"></td>
-    <td><img src="screenshots/03.png" alt="Screenshot 3"></td>
   </tr>
   <tr>
+    <td><img src="screenshots/03.png" alt="Screenshot 3"></td>
     <td><img src="screenshots/04.png" alt="Screenshot 4"></td>
+  </tr>
+  <tr>
     <td><img src="screenshots/05.png" alt="Screenshot 5"></td>
     <td><img src="screenshots/06.png" alt="Screenshot 6"></td>
   </tr>

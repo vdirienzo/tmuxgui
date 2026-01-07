@@ -14,11 +14,26 @@ finish-args:
   - --filesystem=home
   # Tmp for tmux sockets
   - --filesystem=/tmp
-  # Talk to host for tmux
+  # PTY access
+  - --socket=session-bus
   - --talk-name=org.freedesktop.Flatpak
 
 modules:
-  # tmux (include in flatpak)
+  # VTE terminal library (GTK4 version)
+  - name: vte
+    buildsystem: meson
+    config-opts:
+      - -Ddocs=false
+      - -Dvapi=false
+      - -Dgtk4=true
+      - -Dgtk3=false
+      - -Dgir=true
+    sources:
+      - type: archive
+        url: https://download.gnome.org/sources/vte/0.78/vte-0.78.0.tar.xz
+        sha256: 01010aefb2dc0cf7ed9e74dfdcd0e71d65e799de6471950a7ac190c9e1f3d3ea
+
+  # libevent (tmux dependency)
   - name: libevent
     buildsystem: autotools
     sources:
@@ -26,6 +41,7 @@ modules:
         url: https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
         sha256: 92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb
 
+  # tmux
   - name: tmux
     buildsystem: autotools
     sources:
