@@ -1591,7 +1591,7 @@ class MainWindow(Adw.ApplicationWindow):
         title.add_css_class("title-1")
         logo_box.append(title)
 
-        version = Gtk.Label(label="Version 0.4.0")
+        version = Gtk.Label(label="Version 0.4.1")
         version.add_css_class("dim-label")
         logo_box.append(version)
 

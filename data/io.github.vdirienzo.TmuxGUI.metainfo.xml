@@ -64,6 +64,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.4.1" date="2026-01-07">
+      <description>
+        <p>Improvements:</p>
+        <ul>
+          <li>Better error messages when tmux is not installed locally</li>
+          <li>Show installation instructions for different distributions</li>
+          <li>Detect missing tmux on remote SSH hosts with toast notification</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-01-07">
       <description>
         <p>New features:</p>
