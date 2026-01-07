@@ -10,21 +10,28 @@ finish-args:
   - --socket=fallback-x11
   - --socket=wayland
   - --device=dri
-  # Home directory access (file browser + tmux)
+  # Home directory access
   - --filesystem=home
   # Tmp for tmux sockets
   - --filesystem=/tmp
-  # Host tmux binary
-  - --filesystem=/usr/bin/tmux:ro
-  - --env=PATH=/app/bin:/usr/bin
+  # Talk to host for tmux
+  - --talk-name=org.freedesktop.Flatpak
 
 modules:
-  # PyGObject (usually in runtime, but ensure it's there)
-  - name: python3-pygobject
-    buildsystem: simple
-    build-commands:
-      - pip3 install --prefix=/app --no-deps pycairo PyGObject
-    sources: []
+  # tmux (include in flatpak)
+  - name: libevent
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+        sha256: 92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb
+
+  - name: tmux
+    buildsystem: autotools
+    sources:
+      - type: archive
+        url: https://github.com/tmux/tmux/releases/download/3.4/tmux-3.4.tar.gz
+        sha256: 551ab8dea0bf505c0ad6b7bb35ef567cdde0ccb84357df142c254f35a23e19aa
 
   # Main application
   - name: tmuxgui

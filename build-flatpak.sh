@@ -19,22 +19,24 @@ check_dep() {
 check_dep flatpak flatpak
 check_dep flatpak-builder flatpak-builder
 
-# Add Flathub if not present
-if ! flatpak remote-list | grep -q flathub; then
-    echo "Adding Flathub repository..."
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+# Check GNOME SDK 49
+echo "Checking GNOME SDK 49..."
+if ! flatpak list | grep -q "org.gnome.Sdk.*49"; then
+    echo "GNOME SDK 49 not found. Installing..."
+    flatpak install -y org.gnome.Sdk//49 || {
+        echo "ERROR: Could not install GNOME SDK 49"
+        echo "Try: flatpak install org.gnome.Sdk//49"
+        exit 1
+    }
 fi
-
-# Install GNOME SDK if needed
-echo "Checking GNOME Platform/SDK 48..."
-flatpak install -y flathub org.gnome.Platform//49 org.gnome.Sdk//49 2>/dev/null || true
+echo "GNOME SDK 49: OK"
 
 # Build
 echo ""
 echo "Building TmuxGUI Flatpak..."
 echo ""
 
-flatpak-builder --force-clean --user --install-deps-from=flathub build-dir org.gnome.TmuxGUI.yml
+flatpak-builder --force-clean build-dir org.gnome.TmuxGUI.yml
 
 # Install locally
 echo ""
@@ -47,4 +49,3 @@ echo ""
 echo "Run with:"
 echo "  flatpak run org.gnome.TmuxGUI"
 echo ""
-echo "Or find it in your application menu as 'TmuxGUI'"
