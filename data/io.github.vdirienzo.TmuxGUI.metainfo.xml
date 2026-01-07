@@ -34,32 +34,32 @@
   <screenshots>
     <screenshot type="default">
       <caption>Session and window management with expandable tree view</caption>
-      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/01.png</image>
+      <image>https://raw.githubusercontent.com/vdirienzo/tmuxgui/main/screenshots/01.png</image>
     </screenshot>
     <screenshot>
       <caption>Integrated terminal with tmux session attached</caption>
-      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/02.png</image>
+      <image>https://raw.githubusercontent.com/vdirienzo/tmuxgui/main/screenshots/02.png</image>
     </screenshot>
     <screenshot>
       <caption>File browser with search and navigation</caption>
-      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/03.png</image>
+      <image>https://raw.githubusercontent.com/vdirienzo/tmuxgui/main/screenshots/03.png</image>
     </screenshot>
     <screenshot>
       <caption>Theme selector with multiple color schemes</caption>
-      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/04.png</image>
+      <image>https://raw.githubusercontent.com/vdirienzo/tmuxgui/main/screenshots/04.png</image>
     </screenshot>
     <screenshot>
       <caption>Dark theme with Nord color scheme</caption>
-      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/05.png</image>
+      <image>https://raw.githubusercontent.com/vdirienzo/tmuxgui/main/screenshots/05.png</image>
     </screenshot>
     <screenshot>
       <caption>Dracula theme with session management</caption>
-      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/06.png</image>
+      <image>https://raw.githubusercontent.com/vdirienzo/tmuxgui/main/screenshots/06.png</image>
     </screenshot>
   </screenshots>
 
-  <url type="homepage">https://github.com/vdirienzo/gnome-tmux</url>
-  <url type="bugtracker">https://github.com/vdirienzo/gnome-tmux/issues</url>
+  <url type="homepage">https://github.com/vdirienzo/tmuxgui</url>
+  <url type="bugtracker">https://github.com/vdirienzo/tmuxgui/issues</url>
 
   <content_rating type="oars-1.1" />
 

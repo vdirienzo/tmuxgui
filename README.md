@@ -1,7 +1,7 @@
-# gnome-tmux
+# tmuxgui
 
 <p align="center">
-  <img src="data/icons/hicolor/512x512/apps/com.github.gnome-tmux.png" alt="gnome-tmux logo" width="128">
+  <img src="data/icons/hicolor/512x512/apps/com.github.tmuxgui.png" alt="tmuxgui logo" width="128">
 </p>
 
 <p align="center">
@@ -45,7 +45,7 @@
 | **Host management** | Save, edit, and delete remote hosts |
 | **Quick connect** | Click saved host to connect instantly |
 | **Custom names** | Give friendly names to saved connections |
-| **Persistent storage** | Hosts saved to `~/.config/gnome-tmux/remote_hosts.json` |
+| **Persistent storage** | Hosts saved to `~/.config/tmuxgui/remote_hosts.json` |
 | **Session operations** | Create, rename, attach to remote sessions |
 | **ControlMaster** | Persistent SSH connections for performance |
 
@@ -84,7 +84,7 @@ The integrated file browser provides VS Code-style navigation:
 |---------|-------------|
 | **Add to favorites** | Star button or context menu |
 | **Quick navigation** | Jump to favorite folders instantly |
-| **Persistent storage** | Saved in `~/.config/gnome-tmux/favorites.json` |
+| **Persistent storage** | Saved in `~/.config/tmuxgui/favorites.json` |
 | **Remove favorites** | Delete from favorites menu |
 
 #### Context Menu (Right-click)
@@ -171,8 +171,8 @@ sudo apt install \
     tmux
 
 # Clone the repository
-git clone https://github.com/vdirienzo/gnome-tmux.git
-cd gnome-tmux
+git clone https://github.com/vdirienzo/tmuxgui.git
+cd tmuxgui
 
 # Run the application
 ./run.py
@@ -190,8 +190,8 @@ sudo dnf install \
     tmux
 
 # Clone and run
-git clone https://github.com/vdirienzo/gnome-tmux.git
-cd gnome-tmux
+git clone https://github.com/vdirienzo/tmuxgui.git
+cd tmuxgui
 ./run.py
 ```
 
@@ -207,8 +207,8 @@ sudo pacman -S \
     tmux
 
 # Clone and run
-git clone https://github.com/vdirienzo/gnome-tmux.git
-cd gnome-tmux
+git clone https://github.com/vdirienzo/tmuxgui.git
+cd tmuxgui
 ./run.py
 ```
 
@@ -228,8 +228,8 @@ flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.f
 flatpak install org.gnome.Sdk//49
 
 # Clone and build
-git clone https://github.com/vdirienzo/gnome-tmux.git
-cd gnome-tmux
+git clone https://github.com/vdirienzo/tmuxgui.git
+cd tmuxgui
 ./build-flatpak.sh
 
 # Run
@@ -290,7 +290,7 @@ flatpak install tmuxgui.flatpak
 
 ### Recommended tmux Configuration
 
-For the best experience with gnome-tmux, add this configuration to your `~/.tmux.conf`:
+For the best experience with tmuxgui, add this configuration to your `~/.tmux.conf`:
 
 ```bash
 # Enable full mouse support (select panes, resize, scroll)
@@ -453,7 +453,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - Host management: save, edit, delete connections
 - Quick connect from saved hosts list
 - Custom names for saved connections
-- Persistent storage in `~/.config/gnome-tmux/remote_hosts.json`
+- Persistent storage in `~/.config/tmuxgui/remote_hosts.json`
 - Create, rename, attach to remote sessions
 - SSH ControlMaster for persistent connections
 - Async loading to keep UI responsive
@@ -510,7 +510,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - VS Code-style file tree with recursive expansion
 - Navigation buttons: Home, Up, Collapse All
 - Search modes: by name, regex, or content (grep)
-- Favorites system with persistent storage (`~/.config/gnome-tmux/favorites.json`)
+- Favorites system with persistent storage (`~/.config/tmuxgui/favorites.json`)
 - Complete context menu:
   - Copy/Paste files and folders
   - Copy Path (absolute)
