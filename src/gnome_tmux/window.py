@@ -185,17 +185,13 @@ class MainWindow(Adw.ApplicationWindow):
         sidebar_header.set_show_end_title_buttons(False)
         sidebar_header.add_css_class("flat")
 
-        # Box compacto para todos los botones de la izquierda
-        left_buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        left_buttons.add_css_class("linked")
-
-        # Drag handle para reordenar secciones
+        # Drag handle para reordenar secciones (en un box para poder añadir controllers)
         drag_handle_box = Gtk.Box()
         drag_handle = Gtk.Image.new_from_icon_name("list-drag-handle-symbolic")
         drag_handle.set_opacity(0.5)
         drag_handle.set_tooltip_text("Drag to reorder")
         drag_handle_box.append(drag_handle)
-        left_buttons.append(drag_handle_box)
+        sidebar_header.pack_start(drag_handle_box)
 
         # Drag source SOLO en el drag handle
         drag_source = Gtk.DragSource()
@@ -210,14 +206,14 @@ class MainWindow(Adw.ApplicationWindow):
         new_btn.set_icon_name("list-add-symbolic")
         new_btn.set_tooltip_text("New session")
         new_btn.connect("clicked", self._on_new_session_clicked)
-        left_buttons.append(new_btn)
+        sidebar_header.pack_start(new_btn)
 
         # Botón split horizontal (paneles lado a lado)
         split_h_button = Gtk.Button()
         split_h_button.set_icon_name("view-dual-symbolic")
         split_h_button.set_tooltip_text("Split horizontally")
         split_h_button.connect("clicked", self._on_split_horizontal)
-        left_buttons.append(split_h_button)
+        sidebar_header.pack_start(split_h_button)
 
         # Botón split vertical (paneles apilados)
         split_v_button = Gtk.Button()
@@ -226,9 +222,7 @@ class MainWindow(Adw.ApplicationWindow):
         split_v_button.set_child(split_v_icon)
         split_v_button.set_tooltip_text("Split vertically")
         split_v_button.connect("clicked", self._on_split_vertical)
-        left_buttons.append(split_v_button)
-
-        sidebar_header.pack_start(left_buttons)
+        sidebar_header.pack_start(split_v_button)
 
         # Botón refresh (derecha)
         refresh_btn = Gtk.Button()

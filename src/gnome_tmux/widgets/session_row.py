@@ -179,33 +179,37 @@ class SessionRow(Adw.ExpanderRow):
             icon = Gtk.Image.new_from_icon_name("utilities-terminal-symbolic")
         self.add_prefix(icon)
 
-        # Botón de nueva ventana
-        new_window_button = Gtk.Button()
-        new_window_button.set_icon_name("list-add-symbolic")
-        new_window_button.set_valign(Gtk.Align.CENTER)
-        new_window_button.add_css_class("flat")
-        new_window_button.set_tooltip_text("New window")
-        new_window_button.connect("clicked", self._on_new_window_clicked)
-        self.add_suffix(new_window_button)
-
-        # Botón de editar nombre de sesión
-        edit_button = Gtk.Button()
-        edit_button.set_icon_name("document-edit-symbolic")
-        edit_button.set_valign(Gtk.Align.CENTER)
-        edit_button.add_css_class("flat")
-        edit_button.set_tooltip_text("Rename session")
-        edit_button.connect("clicked", self._on_edit_clicked)
-        self.add_suffix(edit_button)
+        # Box compacto para botones de acción
+        actions_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        actions_box.set_valign(Gtk.Align.CENTER)
+        actions_box.add_css_class("linked")
 
         # Botón de eliminar
         delete_button = Gtk.Button()
         delete_button.set_icon_name("user-trash-symbolic")
-        delete_button.set_valign(Gtk.Align.CENTER)
         delete_button.add_css_class("flat")
         delete_button.add_css_class("error")
         delete_button.set_tooltip_text("Delete session")
         delete_button.connect("clicked", self._on_delete_clicked)
-        self.add_suffix(delete_button)
+        actions_box.append(delete_button)
+
+        # Botón de editar nombre de sesión
+        edit_button = Gtk.Button()
+        edit_button.set_icon_name("document-edit-symbolic")
+        edit_button.add_css_class("flat")
+        edit_button.set_tooltip_text("Rename session")
+        edit_button.connect("clicked", self._on_edit_clicked)
+        actions_box.append(edit_button)
+
+        # Botón de nueva ventana
+        new_window_button = Gtk.Button()
+        new_window_button.set_icon_name("list-add-symbolic")
+        new_window_button.add_css_class("flat")
+        new_window_button.set_tooltip_text("New window")
+        new_window_button.connect("clicked", self._on_new_window_clicked)
+        actions_box.append(new_window_button)
+
+        self.add_suffix(actions_box)
 
         # Agregar ventanas como filas hijas
         for window in session.windows:

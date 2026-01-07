@@ -47,40 +47,37 @@ class FileTree(Gtk.Box):
         header_box.set_margin_top(4)
         header_box.set_margin_bottom(4)
 
-        # Box compacto para botones de navegación
-        nav_buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        nav_buttons.add_css_class("linked")
-
         # Drag handle (expuesto para que window.py pueda agregar DragSource)
         self.drag_handle_box = Gtk.Box()
         drag_handle = Gtk.Image.new_from_icon_name("list-drag-handle-symbolic")
         drag_handle.set_opacity(0.5)
         drag_handle.set_tooltip_text("Drag to reorder")
         self.drag_handle_box.append(drag_handle)
-        nav_buttons.append(self.drag_handle_box)
+        header_box.append(self.drag_handle_box)
 
         # Botón ir al home
         home_btn = Gtk.Button()
         home_btn.set_icon_name("go-home-symbolic")
         home_btn.set_tooltip_text("Go to home")
+        home_btn.add_css_class("flat")
         home_btn.connect("clicked", self._on_home_clicked)
-        nav_buttons.append(home_btn)
+        header_box.append(home_btn)
 
         # Botón ir arriba
         up_btn = Gtk.Button()
         up_btn.set_icon_name("go-up-symbolic")
         up_btn.set_tooltip_text("Go up")
+        up_btn.add_css_class("flat")
         up_btn.connect("clicked", self._on_up_clicked)
-        nav_buttons.append(up_btn)
+        header_box.append(up_btn)
 
         # Botón colapsar todo
         collapse_btn = Gtk.Button()
         collapse_btn.set_icon_name("view-restore-symbolic")
         collapse_btn.set_tooltip_text("Collapse all")
+        collapse_btn.add_css_class("flat")
         collapse_btn.connect("clicked", self._on_collapse_all)
-        nav_buttons.append(collapse_btn)
-
-        header_box.append(nav_buttons)
+        header_box.append(collapse_btn)
 
         # Label con path actual
         self._path_label = Gtk.Label()
