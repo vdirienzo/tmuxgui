@@ -261,54 +261,28 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _create_file_tree(self) -> Gtk.Widget:
         """Crea el sidebar del árbol de archivos."""
-        # Contenedor con drag handle
-        file_tree_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        # Widget FileTree directamente (sin header separado)
+        self.file_tree_widget = FileTree()
+        self.file_tree_widget.set_vexpand(True)
 
-        # Header minimalista con drag handle
-        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        header.set_margin_start(8)
-        header.set_margin_end(8)
-        header.set_margin_top(4)
-        header.set_margin_bottom(4)
-
-        # Drag handle en un box para añadir controller
-        drag_handle_box = Gtk.Box()
-        drag_handle = Gtk.Image.new_from_icon_name("list-drag-handle-symbolic")
-        drag_handle.set_opacity(0.5)
-        drag_handle.set_tooltip_text("Drag to reorder")
-        drag_handle_box.append(drag_handle)
-        header.append(drag_handle_box)
-
-        # Drag source SOLO en el drag handle
+        # Drag source en el drag handle del FileTree
         drag_source = Gtk.DragSource()
         drag_source.set_actions(Gdk.DragAction.MOVE)
         drag_source.connect(
             "prepare", lambda s, x, y: Gdk.ContentProvider.new_for_value("filetree")
         )
-        drag_handle_box.add_controller(drag_source)
+        self.file_tree_widget.drag_handle_box.add_controller(drag_source)
 
-        label = Gtk.Label(label="Files")
-        label.add_css_class("dim-label")
-        header.append(label)
-
-        file_tree_box.append(header)
-        file_tree_box.append(Gtk.Separator())
-
-        # Widget FileTree
-        self.file_tree_widget = FileTree()
-        self.file_tree_widget.set_vexpand(True)
-        file_tree_box.append(self.file_tree_widget)
-
-        # Drop target solo en el header para recibir otras secciones
+        # Drop target en el drag handle para recibir otras secciones
         drop_target = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
         drop_target.connect("drop", self._on_sidebar_section_drop)
         drop_target.connect("enter", self._on_sidebar_section_enter)
         drop_target.connect("leave", self._on_sidebar_section_leave)
-        header.add_controller(drop_target)
+        self.file_tree_widget.drag_handle_box.add_controller(drop_target)
 
-        self._file_tree_box = file_tree_box
-        self._file_tree_header = header
-        return file_tree_box
+        self._file_tree_box = self.file_tree_widget
+        self._file_tree_header = self.file_tree_widget.drag_handle_box
+        return self.file_tree_widget
 
     def _create_empty_placeholder(self) -> Gtk.Widget:
         """Crea el placeholder para cuando no hay sesiones."""
@@ -623,7 +597,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         entry = Gtk.Entry()
         entry.set_placeholder_text("session-name")
-        entry.connect("activate", lambda e: dialog.response("create"))
+        entry.connect("activate", lambda e: [dialog.set_focus(None), dialog.response("create")])
         dialog.set_extra_child(entry)
 
         dialog.add_response("cancel", "Cancel")
@@ -632,10 +606,12 @@ class MainWindow(Adw.ApplicationWindow):
         dialog.set_default_response("create")
 
         def on_response(dlg, response):
+            dlg.set_focus(None)
             dlg.close()
             if response == "create":
                 name = entry.get_text().strip()
                 if name:
+                    parent_dialog.set_focus(None)
                     parent_dialog.close()
                     if self.tmux.create_session(name):
                         self._refresh_sessions()
@@ -660,7 +636,7 @@ class MainWindow(Adw.ApplicationWindow):
         header.set_show_end_title_buttons(False)
 
         cancel_btn = Gtk.Button(label="Cancel")
-        cancel_btn.connect("clicked", lambda b: dialog.close())
+        cancel_btn.connect("clicked", lambda b: [dialog.set_focus(None), dialog.close()])
         header.pack_start(cancel_btn)
 
         save_btn = Gtk.Button(label="Save")
@@ -716,7 +692,9 @@ class MainWindow(Adw.ApplicationWindow):
             )
             remote_hosts_manager.add_host(new_host)
 
+            dialog.set_focus(None)
             dialog.close()
+            parent_dialog.set_focus(None)
             parent_dialog.close()
             # Reabrir diálogo principal para mostrar el nuevo host
             self._on_new_session_clicked(None)
@@ -739,7 +717,7 @@ class MainWindow(Adw.ApplicationWindow):
         header.set_show_end_title_buttons(False)
 
         cancel_btn = Gtk.Button(label="Cancel")
-        cancel_btn.connect("clicked", lambda b: dialog.close())
+        cancel_btn.connect("clicked", lambda b: [dialog.set_focus(None), dialog.close()])
         header.pack_start(cancel_btn)
 
         save_btn = Gtk.Button(label="Save")
@@ -798,7 +776,9 @@ class MainWindow(Adw.ApplicationWindow):
             )
             remote_hosts_manager.add_host(updated_host)
 
+            dialog.set_focus(None)
             dialog.close()
+            parent_dialog.set_focus(None)
             parent_dialog.close()
             # Reabrir diálogo principal para mostrar cambios
             self._on_new_session_clicked(None)
@@ -844,7 +824,7 @@ class MainWindow(Adw.ApplicationWindow):
         header.set_show_end_title_buttons(False)
 
         cancel_btn = Gtk.Button(label="Cancel")
-        cancel_btn.connect("clicked", lambda b: dialog.close())
+        cancel_btn.connect("clicked", lambda b: [dialog.set_focus(None), dialog.close()])
         header.pack_start(cancel_btn)
 
         connect_btn = Gtk.Button(label="Connect")
@@ -884,7 +864,9 @@ class MainWindow(Adw.ApplicationWindow):
         toolbar_view.set_content(content)
 
         def on_connect_clicked(btn):
+            dialog.set_focus(None)
             dialog.close()
+            parent_dialog.set_focus(None)
             parent_dialog.close()
 
             if attach_row.get_active():
@@ -897,7 +879,7 @@ class MainWindow(Adw.ApplicationWindow):
                 self._create_remote_session(name, host.host, host.user, host.port)
 
         connect_btn.connect("clicked", on_connect_clicked)
-        name_entry.connect("apply", lambda e: on_connect_clicked(connect_btn))
+        name_entry.connect("apply", lambda e: [dialog.set_focus(None), on_connect_clicked(connect_btn)])
 
         dialog.present()
         name_entry.grab_focus()
@@ -962,7 +944,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         entry = Gtk.Entry()
         entry.set_placeholder_text("session-name")
-        entry.connect("activate", lambda e: dialog.response("attach"))
+        entry.connect("activate", lambda e: [dialog.set_focus(None), dialog.response("attach")])
         dialog.set_extra_child(entry)
 
         dialog.add_response("cancel", "Cancel")
@@ -971,6 +953,7 @@ class MainWindow(Adw.ApplicationWindow):
         dialog.set_default_response("attach")
 
         def on_response(dlg, response):
+            dlg.set_focus(None)
             dlg.close()
             if response == "attach":
                 name = entry.get_text().strip()
@@ -1059,7 +1042,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         entry = Gtk.Entry()
         entry.set_placeholder_text("window-name (optional)")
-        entry.connect("activate", lambda e: dialog.response("create"))
+        entry.connect("activate", lambda e: [dialog.set_focus(None), dialog.response("create")])
         dialog.set_extra_child(entry)
 
         dialog.add_response("cancel", "Cancel")
@@ -1068,6 +1051,7 @@ class MainWindow(Adw.ApplicationWindow):
         dialog.set_default_response("create")
 
         def on_response(dlg, response):
+            dlg.set_focus(None)
             dlg.close()
             if response == "create":
                 window_name = entry.get_text().strip() or None
@@ -1090,7 +1074,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         entry = Gtk.Entry()
         entry.set_text(name)
-        entry.connect("activate", lambda e: dialog.response("rename"))
+        entry.connect("activate", lambda e: [dialog.set_focus(None), dialog.response("rename")])
         dialog.set_extra_child(entry)
 
         dialog.add_response("cancel", "Cancel")
@@ -1099,6 +1083,7 @@ class MainWindow(Adw.ApplicationWindow):
         dialog.set_default_response("rename")
 
         def on_response(dlg, response):
+            dlg.set_focus(None)
             dlg.close()
             if response == "rename":
                 new_name = entry.get_text().strip()
@@ -1153,7 +1138,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         entry = Gtk.Entry()
         entry.set_text(session_name)
-        entry.connect("activate", lambda e: dialog.response("rename"))
+        entry.connect("activate", lambda e: [dialog.set_focus(None), dialog.response("rename")])
         dialog.set_extra_child(entry)
 
         dialog.add_response("cancel", "Cancel")
@@ -1166,6 +1151,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_rename_session_response(self, dialog, response: str, old_name: str, entry: Gtk.Entry):
         """Maneja la respuesta del diálogo de renombrar sesión."""
+        dialog.set_focus(None)
         dialog.close()
         if response == "rename":
             new_name = entry.get_text().strip()
@@ -1187,7 +1173,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         entry = Gtk.Entry()
         entry.set_text(current_name)
-        entry.connect("activate", lambda e: dialog.response("rename"))
+        entry.connect("activate", lambda e: [dialog.set_focus(None), dialog.response("rename")])
         dialog.set_extra_child(entry)
 
         dialog.add_response("cancel", "Cancel")
@@ -1204,6 +1190,7 @@ class MainWindow(Adw.ApplicationWindow):
         self, dialog, response: str, session_name: str, window_index: int, entry: Gtk.Entry
     ):
         """Maneja la respuesta del diálogo de renombrar ventana."""
+        dialog.set_focus(None)
         dialog.close()
         if response == "rename":
             new_name = entry.get_text().strip()
@@ -1223,7 +1210,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         entry = Gtk.Entry()
         entry.set_placeholder_text("window-name (optional)")
-        entry.connect("activate", lambda e: dialog.response("create"))
+        entry.connect("activate", lambda e: [dialog.set_focus(None), dialog.response("create")])
         dialog.set_extra_child(entry)
 
         dialog.add_response("cancel", "Cancel")
@@ -1236,6 +1223,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_new_window_response(self, dialog, response: str, session_name: str, entry: Gtk.Entry):
         """Maneja la respuesta del diálogo de nueva ventana."""
+        dialog.set_focus(None)
         dialog.close()
         if response == "create":
             name = entry.get_text().strip() or None

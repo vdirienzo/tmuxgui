@@ -47,6 +47,14 @@ class FileTree(Gtk.Box):
         header_box.set_margin_top(4)
         header_box.set_margin_bottom(4)
 
+        # Drag handle (expuesto para que window.py pueda agregar DragSource)
+        self.drag_handle_box = Gtk.Box()
+        drag_handle = Gtk.Image.new_from_icon_name("list-drag-handle-symbolic")
+        drag_handle.set_opacity(0.5)
+        drag_handle.set_tooltip_text("Drag to reorder")
+        self.drag_handle_box.append(drag_handle)
+        header_box.append(self.drag_handle_box)
+
         # Botón ir al home
         home_btn = Gtk.Button()
         home_btn.set_icon_name("go-home-symbolic")
