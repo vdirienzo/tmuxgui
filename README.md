@@ -441,7 +441,10 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 **Flatpak Support**
 - Complete Flatpak packaging with manifest
 - Desktop integration (icon, .desktop file, metainfo)
+- Screenshots visible in GNOME Software
+- Uses host tmux via `flatpak-spawn` for sandbox compatibility
 - Build script `./build-flatpak.sh`
+- Export bundle: `flatpak build-bundle ~/.local/share/flatpak/repo tmuxgui.flatpak org.gnome.TmuxGUI`
 
 ### [0.2.0] - 2026-01-06
 
