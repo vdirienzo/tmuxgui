@@ -825,8 +825,9 @@ class FileTreeRow(Gtk.ListBoxRow):
             box.append(label)
 
             # Hacer clickeable toda la fila para expandir/colapsar
+            # Usar "released" para no interferir con drag source
             click = Gtk.GestureClick()
-            click.connect("pressed", self._on_clicked)
+            click.connect("released", self._on_clicked)
             self.add_controller(click)
         else:
             # Espaciador para alinear con carpetas
