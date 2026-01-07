@@ -27,7 +27,7 @@ fi
 
 # Install GNOME SDK if needed
 echo "Checking GNOME Platform/SDK 48..."
-flatpak install -y flathub org.gnome.Platform//48 org.gnome.Sdk//48 2>/dev/null || true
+flatpak install -y flathub org.gnome.Platform//49 org.gnome.Sdk//49 2>/dev/null || true
 
 # Build
 echo ""
