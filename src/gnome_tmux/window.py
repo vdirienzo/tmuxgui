@@ -393,10 +393,17 @@ class MainWindow(Adw.ApplicationWindow):
                 return
 
             results = []
+            hosts_without_tmux = []
+
             for client_key, client in clients_snapshot:
                 if self._closing:
                     return
                 try:
+                    # Verificar si tmux está disponible en el host remoto
+                    if client.is_connected() and not client.is_tmux_available():
+                        hosts_without_tmux.append(f"{client.user}@{client.host}")
+                        continue
+
                     remote_sessions = client.list_sessions()
                     results.append((client, remote_sessions))
                 except Exception:
@@ -406,15 +413,20 @@ class MainWindow(Adw.ApplicationWindow):
                 return
 
             # Actualizar UI en el hilo principal
-            GLib.idle_add(self._add_remote_sessions_to_ui, results)
+            GLib.idle_add(self._add_remote_sessions_to_ui, results, hosts_without_tmux)
 
         thread = threading.Thread(target=fetch_remote, daemon=True)
         thread.start()
 
-    def _add_remote_sessions_to_ui(self, results: list):
+    def _add_remote_sessions_to_ui(self, results: list, hosts_without_tmux: list = None):
         """Agrega sesiones remotas a la UI (llamar desde hilo principal)."""
         if self._closing:
             return False
+
+        # Mostrar toast si hay hosts sin tmux instalado
+        if hosts_without_tmux:
+            for host in hosts_without_tmux:
+                self._show_toast(f"tmux not installed on {host}")
 
         # Primero eliminar todas las filas remotas existentes
         index = 0
@@ -455,15 +467,63 @@ class MainWindow(Adw.ApplicationWindow):
         box.set_valign(Gtk.Align.CENTER)
         box.set_margin_top(24)
         box.set_margin_bottom(24)
+        box.set_margin_start(12)
+        box.set_margin_end(12)
 
         icon = Gtk.Image.new_from_icon_name("dialog-error-symbolic")
         icon.set_pixel_size(48)
         icon.add_css_class("error")
         box.append(icon)
 
-        label = Gtk.Label(label=message)
-        label.add_css_class("error")
-        box.append(label)
+        title = Gtk.Label(label=message)
+        title.add_css_class("error")
+        title.add_css_class("title-3")
+        box.append(title)
+
+        # Si es error de tmux no instalado, mostrar instrucciones
+        if "tmux" in message.lower() and "install" in message.lower():
+            subtitle = Gtk.Label(
+                label="tmux is required to run this application.\nInstall it using your package manager:"
+            )
+            subtitle.add_css_class("dim-label")
+            subtitle.set_justify(Gtk.Justification.CENTER)
+            box.append(subtitle)
+
+            # Comandos de instalación
+            commands_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+            commands_box.set_margin_top(8)
+
+            install_cmds = [
+                ("Debian/Ubuntu:", "sudo apt install tmux"),
+                ("Fedora:", "sudo dnf install tmux"),
+                ("Arch:", "sudo pacman -S tmux"),
+            ]
+
+            for distro, cmd in install_cmds:
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+                row.set_halign(Gtk.Align.CENTER)
+
+                distro_label = Gtk.Label(label=distro)
+                distro_label.add_css_class("dim-label")
+                distro_label.set_xalign(1)
+                distro_label.set_size_request(100, -1)
+                row.append(distro_label)
+
+                cmd_label = Gtk.Label(label=cmd)
+                cmd_label.add_css_class("monospace")
+                cmd_label.set_xalign(0)
+                cmd_label.set_selectable(True)
+                row.append(cmd_label)
+
+                commands_box.append(row)
+
+            box.append(commands_box)
+
+            # Nota sobre reiniciar
+            restart_label = Gtk.Label(label="Restart the application after installing tmux.")
+            restart_label.add_css_class("dim-label")
+            restart_label.set_margin_top(12)
+            box.append(restart_label)
 
         self.sessions_list.set_placeholder(box)
 

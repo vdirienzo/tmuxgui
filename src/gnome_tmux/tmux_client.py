@@ -316,6 +316,18 @@ class RemoteTmuxClient:
         result = subprocess.run(cmd, capture_output=True, timeout=2)
         return result.returncode == 0
 
+    def is_tmux_available(self) -> bool:
+        """Verifica si tmux está instalado en el servidor remoto."""
+        if not self.is_connected():
+            return False
+        # Ejecutar 'which tmux' o 'command -v tmux' en el remoto
+        cmd = self._get_ssh_base() + ["command -v tmux"]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=3)
+            return result.returncode == 0 and "tmux" in result.stdout
+        except subprocess.TimeoutExpired:
+            return False
+
     def has_server(self) -> bool:
         """Verifica si hay un servidor tmux corriendo en el remoto."""
         if not self.is_connected():
