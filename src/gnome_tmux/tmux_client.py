@@ -4,9 +4,15 @@ tmux_client.py - Wrapper subprocess para comandos tmux
 Autor: Homero Thompson del Lago del Terror
 """
 
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass, field
+
+
+def is_flatpak() -> bool:
+    """Detecta si está corriendo en un sandbox de Flatpak."""
+    return os.path.exists("/.flatpak-info")
 
 
 @dataclass
@@ -32,21 +38,34 @@ class TmuxClient:
     """Cliente para interactuar con tmux via subprocess."""
 
     def __init__(self):
-        self._tmux_path = shutil.which("tmux")
+        self._is_flatpak = is_flatpak()
+        if self._is_flatpak:
+            # En Flatpak, usar el tmux del host
+            self._tmux_path = "tmux"  # Se ejecuta via flatpak-spawn
+        else:
+            self._tmux_path = shutil.which("tmux")
+
+    def _run_tmux(self, args: list[str], **kwargs) -> subprocess.CompletedProcess:
+        """Ejecuta un comando tmux, usando flatpak-spawn si está en Flatpak."""
+        if self._is_flatpak:
+            cmd = ["flatpak-spawn", "--host", "tmux"] + args
+        else:
+            cmd = ["tmux"] + args
+        return subprocess.run(cmd, **kwargs)
 
     @property
     def is_available(self) -> bool:
         """Verifica si tmux está instalado."""
+        if self._is_flatpak:
+            # En Flatpak, asumimos que el host tiene tmux
+            return True
         return self._tmux_path is not None
 
     def has_server(self) -> bool:
         """Verifica si hay un servidor tmux corriendo."""
         if not self.is_available:
             return False
-        result = subprocess.run(
-            ["tmux", "has-session"],
-            capture_output=True,
-        )
+        result = self._run_tmux(["has-session"], capture_output=True)
         return result.returncode == 0
 
     def list_sessions(self) -> list[Session]:
@@ -56,8 +75,8 @@ class TmuxClient:
 
         # Obtener sesiones
         fmt = "#{session_name}:#{session_windows}:#{session_attached}"
-        result = subprocess.run(
-            ["tmux", "list-sessions", "-F", fmt],
+        result = self._run_tmux(
+            ["list-sessions", "-F", fmt],
             capture_output=True,
             text=True,
         )
@@ -85,8 +104,8 @@ class TmuxClient:
     def _list_windows(self, session_name: str) -> list[Window]:
         """Lista las ventanas de una sesión."""
         fmt = "#{window_index}:#{window_name}:#{window_active}"
-        result = subprocess.run(
-            ["tmux", "list-windows", "-t", session_name, "-F", fmt],
+        result = self._run_tmux(
+            ["list-windows", "-t", session_name, "-F", fmt],
             capture_output=True,
             text=True,
         )
@@ -118,8 +137,8 @@ class TmuxClient:
         if not name or ":" in name or "." in name:
             return False
 
-        result = subprocess.run(
-            ["tmux", "new-session", "-d", "-s", name],
+        result = self._run_tmux(
+            ["new-session", "-d", "-s", name],
             capture_output=True,
         )
         return result.returncode == 0
@@ -129,8 +148,8 @@ class TmuxClient:
         if not self.is_available:
             return False
 
-        result = subprocess.run(
-            ["tmux", "kill-session", "-t", name],
+        result = self._run_tmux(
+            ["kill-session", "-t", name],
             capture_output=True,
         )
         return result.returncode == 0
@@ -141,6 +160,14 @@ class TmuxClient:
             target = f"{session_name}:{window_index}"
         else:
             target = session_name
+
+        if self._is_flatpak:
+            # Pasar TERM para que tmux funcione correctamente
+            return [
+                "flatpak-spawn", "--host",
+                "--env=TERM=xterm-256color",
+                "tmux", "attach-session", "-t", target
+            ]
         return ["tmux", "attach-session", "-t", target]
 
     def rename_session(self, old_name: str, new_name: str) -> bool:
@@ -148,8 +175,8 @@ class TmuxClient:
         if not self.is_available or not new_name:
             return False
 
-        result = subprocess.run(
-            ["tmux", "rename-session", "-t", old_name, new_name],
+        result = self._run_tmux(
+            ["rename-session", "-t", old_name, new_name],
             capture_output=True,
         )
         return result.returncode == 0
@@ -160,8 +187,8 @@ class TmuxClient:
             return False
 
         target = f"{session_name}:{window_index}"
-        result = subprocess.run(
-            ["tmux", "rename-window", "-t", target, new_name],
+        result = self._run_tmux(
+            ["rename-window", "-t", target, new_name],
             capture_output=True,
         )
         return result.returncode == 0
@@ -171,11 +198,11 @@ class TmuxClient:
         if not self.is_available:
             return False
 
-        cmd = ["tmux", "new-window", "-t", session_name]
+        cmd = ["new-window", "-t", session_name]
         if window_name:
             cmd.extend(["-n", window_name])
 
-        result = subprocess.run(cmd, capture_output=True)
+        result = self._run_tmux(cmd, capture_output=True)
         return result.returncode == 0
 
     def exit_window(self, session_name: str, window_index: int) -> bool:
@@ -184,8 +211,8 @@ class TmuxClient:
             return False
 
         target = f"{session_name}:{window_index}"
-        result = subprocess.run(
-            ["tmux", "send-keys", "-t", target, "exit", "Enter"],
+        result = self._run_tmux(
+            ["send-keys", "-t", target, "exit", "Enter"],
             capture_output=True,
         )
         return result.returncode == 0
@@ -195,11 +222,11 @@ class TmuxClient:
         if not self.is_available:
             return False
 
-        cmd = ["tmux", "split-window", "-h"]
+        cmd = ["split-window", "-h"]
         if target:
             cmd.extend(["-t", target])
 
-        result = subprocess.run(cmd, capture_output=True)
+        result = self._run_tmux(cmd, capture_output=True)
         return result.returncode == 0
 
     def split_vertical(self, target: str | None = None) -> bool:
@@ -207,11 +234,11 @@ class TmuxClient:
         if not self.is_available:
             return False
 
-        cmd = ["tmux", "split-window", "-v"]
+        cmd = ["split-window", "-v"]
         if target:
             cmd.extend(["-t", target])
 
-        result = subprocess.run(cmd, capture_output=True)
+        result = self._run_tmux(cmd, capture_output=True)
         return result.returncode == 0
 
     def swap_windows(self, session_name: str, src_index: int, dst_index: int) -> bool:
@@ -221,8 +248,8 @@ class TmuxClient:
 
         src = f"{session_name}:{src_index}"
         dst = f"{session_name}:{dst_index}"
-        result = subprocess.run(
-            ["tmux", "swap-window", "-s", src, "-t", dst],
+        result = self._run_tmux(
+            ["swap-window", "-s", src, "-t", dst],
             capture_output=True,
         )
         return result.returncode == 0

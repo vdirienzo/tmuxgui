@@ -202,10 +202,12 @@ cd gnome-tmux
 
 ### Flatpak (Universal)
 
+**Requirements:** tmux must be installed on the host system (the Flatpak uses the host's tmux via `flatpak-spawn`).
+
 ```bash
 # Install flatpak-builder if needed
-sudo apt install flatpak flatpak-builder  # Debian/Ubuntu
-sudo dnf install flatpak flatpak-builder  # Fedora
+sudo apt install flatpak flatpak-builder tmux  # Debian/Ubuntu
+sudo dnf install flatpak flatpak-builder tmux  # Fedora
 
 # Add Flathub repository
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
@@ -220,6 +222,20 @@ cd gnome-tmux
 
 # Run
 flatpak run org.gnome.TmuxGUI
+```
+
+#### Export Flatpak Bundle
+
+To create a distributable `.flatpak` file:
+
+```bash
+flatpak build-bundle ~/.local/share/flatpak/repo tmuxgui.flatpak org.gnome.TmuxGUI
+```
+
+Install on another machine:
+
+```bash
+flatpak install tmuxgui.flatpak
 ```
 
 ## Usage

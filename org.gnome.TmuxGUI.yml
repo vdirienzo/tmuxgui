@@ -9,12 +9,15 @@ finish-args:
   - --share=ipc
   - --socket=fallback-x11
   - --socket=wayland
-  - --device=dri
+  # All devices (required for PTY/terminal)
+  - --device=all
   # Home directory access
   - --filesystem=home
   # Tmp for tmux sockets
   - --filesystem=/tmp
-  # PTY access
+  # Run directory for tmux socket
+  - --filesystem=xdg-run/tmux
+  # Session bus
   - --socket=session-bus
   - --talk-name=org.freedesktop.Flatpak
 
@@ -31,25 +34,9 @@ modules:
     sources:
       - type: archive
         url: https://download.gnome.org/sources/vte/0.78/vte-0.78.0.tar.xz
-        sha256: 01010aefb2dc0cf7ed9e74dfdcd0e71d65e799de6471950a7ac190c9e1f3d3ea
+        sha256: 07f09c6228a8bb3c1599dd0f5a6ec797b30d3010c3ac91cf21b69d9635dfaf7c
 
-  # libevent (tmux dependency)
-  - name: libevent
-    buildsystem: autotools
-    sources:
-      - type: archive
-        url: https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
-        sha256: 92e6de1be9ec176428fd2367677e61ceffc2ee1cb119035037a27d346b0403bb
-
-  # tmux
-  - name: tmux
-    buildsystem: autotools
-    sources:
-      - type: archive
-        url: https://github.com/tmux/tmux/releases/download/3.4/tmux-3.4.tar.gz
-        sha256: 551ab8dea0bf505c0ad6b7bb35ef567cdde0ccb84357df142c254f35a23e19aa
-
-  # Main application
+  # Main application (uses host tmux via flatpak-spawn)
   - name: tmuxgui
     buildsystem: simple
     build-commands:
