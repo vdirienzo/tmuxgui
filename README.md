@@ -109,14 +109,9 @@ The integrated file browser provides VS Code-style navigation:
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/01.png" alt="Session management" width="800">
-  <br><em>Session and window management with expandable tree view</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/02.png" alt="Integrated terminal" width="480">
-  <img src="screenshots/03.png" alt="File browser" width="480">
-  <br><em>Integrated terminal (left) • File browser with search and favorites (right)</em>
+  <img src="screenshots/01.png" alt="Session management" width="60%">
+  <img src="screenshots/02.png" alt="File browser" width="60%">
+  <br><em>Session and window management (left) • File browser with search (right)</em>
 </p>
 
 ## Requirements
