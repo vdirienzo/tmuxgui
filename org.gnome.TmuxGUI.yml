@@ -46,7 +46,9 @@ modules:
       - install -Dm755 tmuxgui.sh /app/bin/tmuxgui
       - install -Dm644 data/org.gnome.TmuxGUI.desktop /app/share/applications/org.gnome.TmuxGUI.desktop
       - install -Dm644 data/org.gnome.TmuxGUI.metainfo.xml /app/share/metainfo/org.gnome.TmuxGUI.metainfo.xml
-      - install -Dm644 data/org.gnome.TmuxGUI.svg /app/share/icons/hicolor/scalable/apps/org.gnome.TmuxGUI.svg
+      - install -Dm644 data/icons/hicolor/48x48/apps/org.gnome.TmuxGUI.png /app/share/icons/hicolor/48x48/apps/org.gnome.TmuxGUI.png
+      - install -Dm644 data/icons/hicolor/64x64/apps/org.gnome.TmuxGUI.png /app/share/icons/hicolor/64x64/apps/org.gnome.TmuxGUI.png
+      - install -Dm644 data/icons/hicolor/128x128/apps/org.gnome.TmuxGUI.png /app/share/icons/hicolor/128x128/apps/org.gnome.TmuxGUI.png
     sources:
       - type: dir
         path: .
