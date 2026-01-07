@@ -93,6 +93,15 @@ The integrated file browser provides VS Code-style navigation:
 | **Drag files** | Drag any file/folder to copy path |
 | **Search results** | Navigate to file location button |
 
+### Themes
+
+| Feature | Description |
+|---------|-------------|
+| **Theme selector** | Click palette icon in header to change theme |
+| **10 color schemes** | Default, Dark, Light, Nord, Dracula, Gruvbox, Catppuccin, Tokyo Night, Solarized Dark, Monokai |
+| **Persistent settings** | Theme preference saved to `~/.config/tmuxgui/settings.json` |
+| **Auto-apply** | Theme applied automatically on startup |
+
 ### UI/UX
 
 | Feature | Description |
@@ -104,7 +113,7 @@ The integrated file browser provides VS Code-style navigation:
 | **Auto-show sidebar** | Move cursor to left edge to reveal hidden sidebar |
 | **Section reordering** | Drag handle to swap Sessions/Files positions |
 | **Toast notifications** | Non-intrusive feedback messages |
-| **Compact rows** | Custom CSS for dense information display |
+| **Compact rows** | Custom CSS for dense information display
 
 ## Screenshots
 
@@ -393,6 +402,25 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` Maintenance tasks
 
 ## Changelog
+
+### [0.3.0] - 2026-01-06
+
+#### Added
+
+**Theme System**
+- Theme selector button in header bar (palette icon)
+- 10 built-in color schemes:
+  - Default (follows system)
+  - Dark / Light (forced modes)
+  - Nord, Dracula, Gruvbox, Catppuccin
+  - Tokyo Night, Solarized Dark, Monokai
+- Theme preference saved to `~/.config/tmuxgui/settings.json`
+- Auto-apply theme on application startup
+
+**Flatpak Support**
+- Complete Flatpak packaging with manifest
+- Desktop integration (icon, .desktop file, metainfo)
+- Build script `./build-flatpak.sh`
 
 ### [0.2.0] - 2026-01-06
 
