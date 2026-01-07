@@ -74,10 +74,10 @@ class RemoteHostsManager:
         self._hosts.append(host)
         self._save()
 
-    def remove_host(self, host: RemoteHost) -> bool:
-        """Elimina un host. Retorna True si se eliminó."""
+    def remove_host(self, host: str, user: str, port: str) -> bool:
+        """Elimina un host por sus datos de conexión. Retorna True si se eliminó."""
         for i, h in enumerate(self._hosts):
-            if h.host == host.host and h.user == host.user and h.port == host.port:
+            if h.host == host and h.user == user and h.port == port:
                 del self._hosts[i]
                 self._save()
                 return True

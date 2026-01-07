@@ -494,10 +494,10 @@ class MainWindow(Adw.ApplicationWindow):
         self.sessions_list.set_placeholder(box)
 
     def _on_new_session_clicked(self, button: Gtk.Button):
-        """Muestra diálogo para crear nueva sesión."""
+        """Muestra diálogo para crear nueva sesión o conectar a remota."""
         dialog = Adw.Window(transient_for=self)
-        dialog.set_title("New Session")
-        dialog.set_default_size(400, 420)
+        dialog.set_title("Sessions")
+        dialog.set_default_size(420, 500)
         dialog.set_modal(True)
 
         # Toolbar view
@@ -506,17 +506,12 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Header
         header = Adw.HeaderBar()
-        header.set_show_end_title_buttons(False)
-
-        cancel_btn = Gtk.Button(label="Cancel")
-        cancel_btn.connect("clicked", lambda b: dialog.close())
-        header.pack_start(cancel_btn)
-
-        create_btn = Gtk.Button(label="Create")
-        create_btn.add_css_class("suggested-action")
-        header.pack_end(create_btn)
-
+        header.set_show_end_title_buttons(True)
         toolbar_view.add_top_bar(header)
+
+        # Scroll para contenido
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
 
         # Contenido
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
@@ -525,147 +520,384 @@ class MainWindow(Adw.ApplicationWindow):
         content.set_margin_start(12)
         content.set_margin_end(12)
 
-        # Grupo: Tipo de sesión
-        type_group = Adw.PreferencesGroup(title="Session Type")
+        # Grupo: Sesión Local
+        local_group = Adw.PreferencesGroup(title="Local Session")
 
-        # Radio buttons para Local/Remote
-        local_row = Adw.ActionRow(title="Local", subtitle="Create session on this machine")
-        local_check = Gtk.CheckButton()
-        local_check.set_active(True)
-        local_row.add_prefix(local_check)
-        local_row.set_activatable_widget(local_check)
-        type_group.add(local_row)
+        local_row = Adw.ActionRow(
+            title="Create local session",
+            subtitle="Start a new tmux session on this machine"
+        )
+        local_row.set_activatable(True)
+        local_icon = Gtk.Image.new_from_icon_name("utilities-terminal-symbolic")
+        local_row.add_prefix(local_icon)
+        arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
+        local_row.add_suffix(arrow)
+        local_row.connect("activated", lambda r: self._show_create_local_dialog(dialog))
+        local_group.add(local_row)
 
-        remote_row = Adw.ActionRow(title="Remote (SSH)", subtitle="Connect to tmux on a remote server")
-        remote_check = Gtk.CheckButton()
-        remote_check.set_group(local_check)
-        remote_row.add_prefix(remote_check)
-        remote_row.set_activatable_widget(remote_check)
-        type_group.add(remote_row)
+        content.append(local_group)
 
-        content.append(type_group)
+        # Grupo: Conexiones Remotas Guardadas
+        saved_hosts = remote_hosts_manager.get_hosts()
 
-        # Grupo: Nombre de sesión
-        name_group = Adw.PreferencesGroup(title="Session Name")
+        remote_group = Adw.PreferencesGroup(title="Remote Connections")
+
+        if saved_hosts:
+            for host in saved_hosts:
+                host_row = Adw.ActionRow(
+                    title=host.name,
+                    subtitle=f"{host.user}@{host.host}" + (f":{host.port}" if host.port != "22" else "")
+                )
+                host_row.set_activatable(True)
+
+                # Icono de servidor
+                server_icon = Gtk.Image.new_from_icon_name("network-server-symbolic")
+                host_row.add_prefix(server_icon)
+
+                # Botón editar
+                edit_btn = Gtk.Button()
+                edit_btn.set_icon_name("document-edit-symbolic")
+                edit_btn.set_valign(Gtk.Align.CENTER)
+                edit_btn.add_css_class("flat")
+                edit_btn.set_tooltip_text("Edit connection")
+                edit_btn.connect("clicked", lambda b, h=host: self._show_edit_host_dialog(dialog, h))
+                host_row.add_suffix(edit_btn)
+
+                # Botón eliminar
+                delete_btn = Gtk.Button()
+                delete_btn.set_icon_name("user-trash-symbolic")
+                delete_btn.set_valign(Gtk.Align.CENTER)
+                delete_btn.add_css_class("flat")
+                delete_btn.add_css_class("error")
+                delete_btn.set_tooltip_text("Delete connection")
+                delete_btn.connect("clicked", lambda b, h=host, d=dialog: self._confirm_delete_host(d, h))
+                host_row.add_suffix(delete_btn)
+
+                # Flecha para conectar
+                connect_arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
+                host_row.add_suffix(connect_arrow)
+
+                # Click para conectar
+                host_row.connect("activated", lambda r, h=host: self._show_connect_to_host_dialog(dialog, h))
+                remote_group.add(host_row)
+        else:
+            # Placeholder si no hay hosts
+            empty_row = Adw.ActionRow(
+                title="No saved connections",
+                subtitle="Add a remote connection to get started"
+            )
+            empty_row.set_sensitive(False)
+            empty_icon = Gtk.Image.new_from_icon_name("network-offline-symbolic")
+            empty_icon.add_css_class("dim-label")
+            empty_row.add_prefix(empty_icon)
+            remote_group.add(empty_row)
+
+        # Botón agregar nueva conexión
+        add_row = Adw.ActionRow(
+            title="Add new connection",
+            subtitle="Configure a new remote server"
+        )
+        add_row.set_activatable(True)
+        add_row.add_css_class("accent")
+        add_icon = Gtk.Image.new_from_icon_name("list-add-symbolic")
+        add_row.add_prefix(add_icon)
+        add_arrow = Gtk.Image.new_from_icon_name("go-next-symbolic")
+        add_row.add_suffix(add_arrow)
+        add_row.connect("activated", lambda r: self._show_add_host_dialog(dialog))
+        remote_group.add(add_row)
+
+        content.append(remote_group)
+
+        scrolled.set_child(content)
+        toolbar_view.set_content(scrolled)
+
+        dialog.present()
+
+    def _show_create_local_dialog(self, parent_dialog):
+        """Muestra diálogo para crear sesión local."""
+        dialog = Adw.MessageDialog(
+            transient_for=parent_dialog,
+            heading="New Local Session",
+            body="Enter a name for the new tmux session:",
+        )
+
+        entry = Gtk.Entry()
+        entry.set_placeholder_text("session-name")
+        entry.connect("activate", lambda e: dialog.response("create"))
+        dialog.set_extra_child(entry)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("create", "Create")
+        dialog.set_response_appearance("create", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("create")
+
+        def on_response(dlg, response):
+            dlg.close()
+            if response == "create":
+                name = entry.get_text().strip()
+                if name:
+                    parent_dialog.close()
+                    if self.tmux.create_session(name):
+                        self._refresh_sessions()
+                        GLib.idle_add(self._attach_to_session, name)
+                    else:
+                        self._show_toast("Failed to create session")
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def _show_add_host_dialog(self, parent_dialog):
+        """Muestra diálogo para agregar nueva conexión remota."""
+        dialog = Adw.Window(transient_for=parent_dialog)
+        dialog.set_title("Add Connection")
+        dialog.set_default_size(380, 320)
+        dialog.set_modal(True)
+
+        toolbar_view = Adw.ToolbarView()
+        dialog.set_content(toolbar_view)
+
+        header = Adw.HeaderBar()
+        header.set_show_end_title_buttons(False)
+
+        cancel_btn = Gtk.Button(label="Cancel")
+        cancel_btn.connect("clicked", lambda b: dialog.close())
+        header.pack_start(cancel_btn)
+
+        save_btn = Gtk.Button(label="Save")
+        save_btn.add_css_class("suggested-action")
+        header.pack_end(save_btn)
+
+        toolbar_view.add_top_bar(header)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        group = Adw.PreferencesGroup()
+
         name_entry = Adw.EntryRow(title="Name")
         name_entry.set_text("")
-        name_group.add(name_entry)
-        content.append(name_group)
-
-        # Grupo: Conexión SSH (oculto por defecto)
-        ssh_group = Adw.PreferencesGroup(title="SSH Connection")
-        ssh_group.set_visible(False)
-
-        # Selector de hosts guardados
-        saved_hosts = remote_hosts_manager.get_hosts()
-        if saved_hosts:
-            hosts_row = Adw.ComboRow(title="Saved Hosts")
-            hosts_model = Gtk.StringList()
-            hosts_model.append("New connection...")
-            for h in saved_hosts:
-                hosts_model.append(f"{h.name} ({h.user}@{h.host})")
-            hosts_row.set_model(hosts_model)
-            ssh_group.add(hosts_row)
+        group.add(name_entry)
 
         host_entry = Adw.EntryRow(title="Host")
         host_entry.set_text("")
-        ssh_group.add(host_entry)
+        group.add(host_entry)
 
         user_entry = Adw.EntryRow(title="User")
         user_entry.set_text("")
-        ssh_group.add(user_entry)
+        group.add(user_entry)
 
         port_entry = Adw.EntryRow(title="Port")
         port_entry.set_text("22")
-        ssh_group.add(port_entry)
+        group.add(port_entry)
 
-        # Switch para attach a sesión existente
+        content.append(group)
+        toolbar_view.set_content(content)
+
+        def on_save_clicked(btn):
+            name = name_entry.get_text().strip()
+            host = host_entry.get_text().strip()
+            user = user_entry.get_text().strip()
+            port = port_entry.get_text().strip() or "22"
+
+            if not name or not host or not user:
+                self._show_toast("Name, host and user are required")
+                return
+
+            from datetime import datetime, timezone
+            new_host = RemoteHost(
+                name=name,
+                host=host,
+                user=user,
+                port=port,
+                last_used=datetime.now(timezone.utc).isoformat()
+            )
+            remote_hosts_manager.add_host(new_host)
+
+            dialog.close()
+            parent_dialog.close()
+            # Reabrir diálogo principal para mostrar el nuevo host
+            self._on_new_session_clicked(None)
+
+        save_btn.connect("clicked", on_save_clicked)
+        dialog.present()
+        name_entry.grab_focus()
+
+    def _show_edit_host_dialog(self, parent_dialog, host: RemoteHost):
+        """Muestra diálogo para editar una conexión remota."""
+        dialog = Adw.Window(transient_for=parent_dialog)
+        dialog.set_title("Edit Connection")
+        dialog.set_default_size(380, 320)
+        dialog.set_modal(True)
+
+        toolbar_view = Adw.ToolbarView()
+        dialog.set_content(toolbar_view)
+
+        header = Adw.HeaderBar()
+        header.set_show_end_title_buttons(False)
+
+        cancel_btn = Gtk.Button(label="Cancel")
+        cancel_btn.connect("clicked", lambda b: dialog.close())
+        header.pack_start(cancel_btn)
+
+        save_btn = Gtk.Button(label="Save")
+        save_btn.add_css_class("suggested-action")
+        header.pack_end(save_btn)
+
+        toolbar_view.add_top_bar(header)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        group = Adw.PreferencesGroup()
+
+        name_entry = Adw.EntryRow(title="Name")
+        name_entry.set_text(host.name)
+        group.add(name_entry)
+
+        host_entry = Adw.EntryRow(title="Host")
+        host_entry.set_text(host.host)
+        group.add(host_entry)
+
+        user_entry = Adw.EntryRow(title="User")
+        user_entry.set_text(host.user)
+        group.add(user_entry)
+
+        port_entry = Adw.EntryRow(title="Port")
+        port_entry.set_text(host.port)
+        group.add(port_entry)
+
+        content.append(group)
+        toolbar_view.set_content(content)
+
+        def on_save_clicked(btn):
+            name = name_entry.get_text().strip()
+            new_host_addr = host_entry.get_text().strip()
+            user = user_entry.get_text().strip()
+            port = port_entry.get_text().strip() or "22"
+
+            if not name or not new_host_addr or not user:
+                self._show_toast("Name, host and user are required")
+                return
+
+            # Eliminar viejo y agregar nuevo
+            remote_hosts_manager.remove_host(host.host, host.user, host.port)
+
+            from datetime import datetime, timezone
+            updated_host = RemoteHost(
+                name=name,
+                host=new_host_addr,
+                user=user,
+                port=port,
+                last_used=datetime.now(timezone.utc).isoformat()
+            )
+            remote_hosts_manager.add_host(updated_host)
+
+            dialog.close()
+            parent_dialog.close()
+            # Reabrir diálogo principal para mostrar cambios
+            self._on_new_session_clicked(None)
+
+        save_btn.connect("clicked", on_save_clicked)
+        dialog.present()
+
+    def _confirm_delete_host(self, parent_dialog, host: RemoteHost):
+        """Confirma eliminación de un host guardado."""
+        dialog = Adw.MessageDialog(
+            transient_for=parent_dialog,
+            heading="Delete Connection?",
+            body=f"Are you sure you want to delete '{host.name}'?\n"
+                 f"({host.user}@{host.host})",
+        )
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("delete", "Delete")
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+
+        def on_response(dlg, response):
+            dlg.close()
+            if response == "delete":
+                remote_hosts_manager.remove_host(host.host, host.user, host.port)
+                parent_dialog.close()
+                # Reabrir diálogo principal
+                self._on_new_session_clicked(None)
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def _show_connect_to_host_dialog(self, parent_dialog, host: RemoteHost):
+        """Muestra diálogo para conectar a un host guardado."""
+        dialog = Adw.Window(transient_for=parent_dialog)
+        dialog.set_title(f"Connect to {host.name}")
+        dialog.set_default_size(380, 280)
+        dialog.set_modal(True)
+
+        toolbar_view = Adw.ToolbarView()
+        dialog.set_content(toolbar_view)
+
+        header = Adw.HeaderBar()
+        header.set_show_end_title_buttons(False)
+
+        cancel_btn = Gtk.Button(label="Cancel")
+        cancel_btn.connect("clicked", lambda b: dialog.close())
+        header.pack_start(cancel_btn)
+
+        connect_btn = Gtk.Button(label="Connect")
+        connect_btn.add_css_class("suggested-action")
+        header.pack_end(connect_btn)
+
+        toolbar_view.add_top_bar(header)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        group = Adw.PreferencesGroup(
+            title="Session",
+            description=f"Connect to {host.user}@{host.host}"
+        )
+
+        name_entry = Adw.EntryRow(title="Session name")
+        name_entry.set_text("")
+        group.add(name_entry)
+
         attach_row = Adw.SwitchRow(
             title="Attach to existing",
             subtitle="Connect to an existing session instead of creating new"
         )
-        ssh_group.add(attach_row)
+        group.add(attach_row)
 
-        # Handler para seleccionar host guardado
-        if saved_hosts:
-            def on_host_selected(combo, _pspec):
-                idx = combo.get_selected()
-                if idx > 0:  # 0 es "New connection..."
-                    selected = saved_hosts[idx - 1]
-                    host_entry.set_text(selected.host)
-                    user_entry.set_text(selected.user)
-                    port_entry.set_text(selected.port)
-                    if not name_entry.get_text():
-                        name_entry.set_text(selected.name)
-                else:
-                    host_entry.set_text("")
-                    user_entry.set_text("")
-                    port_entry.set_text("22")
-            hosts_row.connect("notify::selected", on_host_selected)
-
-        content.append(ssh_group)
-
-        # Toggle visibilidad de SSH group y name group
-        def on_remote_toggled(check):
-            is_remote = check.get_active()
-            ssh_group.set_visible(is_remote)
-            # Si attach está activo, ocultar nombre
-            if is_remote and attach_row.get_active():
-                name_group.set_visible(False)
-            else:
-                name_group.set_visible(True)
-
+        # Ocultar nombre si attach está activo
         def on_attach_toggled(row, _pspec):
-            name_group.set_visible(not row.get_active())
+            name_entry.set_sensitive(not row.get_active())
 
-        remote_check.connect("toggled", on_remote_toggled)
         attach_row.connect("notify::active", on_attach_toggled)
 
+        content.append(group)
         toolbar_view.set_content(content)
 
-        # Handler del botón Create
-        def on_create_clicked(btn):
-            is_remote = remote_check.get_active()
+        def on_connect_clicked(btn):
+            dialog.close()
+            parent_dialog.close()
 
-            if is_remote:
-                host = host_entry.get_text().strip()
-                user = user_entry.get_text().strip()
-                port = port_entry.get_text().strip() or "22"
-
-                if not host or not user:
-                    self._show_toast("Host and user are required for SSH")
-                    return
-
-                dialog.close()
-
-                if attach_row.get_active():
-                    # Attach a sesión existente (pide nombre después)
-                    self._attach_remote_existing(host, user, port)
-                else:
-                    # Crear nueva sesión remota
-                    name = name_entry.get_text().strip()
-                    if not name:
-                        self._show_toast("Session name is required")
-                        return
-                    self._create_remote_session(name, host, user, port)
+            if attach_row.get_active():
+                self._attach_remote_existing(host.host, host.user, host.port)
             else:
-                # Crear sesión local
                 name = name_entry.get_text().strip()
                 if not name:
                     self._show_toast("Session name is required")
                     return
+                self._create_remote_session(name, host.host, host.user, host.port)
 
-                dialog.close()
-                if self.tmux.create_session(name):
-                    self._refresh_sessions()
-                    GLib.idle_add(self._attach_to_session, name)
-                else:
-                    self._show_toast("Failed to create session")
-
-        create_btn.connect("clicked", on_create_clicked)
-
-        # Enter en name_entry activa create
-        name_entry.connect("apply", lambda e: on_create_clicked(create_btn))
+        connect_btn.connect("clicked", on_connect_clicked)
+        name_entry.connect("apply", lambda e: on_connect_clicked(connect_btn))
 
         dialog.present()
         name_entry.grab_focus()
