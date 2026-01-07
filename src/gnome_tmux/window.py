@@ -518,9 +518,10 @@ class MainWindow(Adw.ApplicationWindow):
 
         if saved_hosts:
             for host in saved_hosts:
+                port_suffix = f":{host.port}" if host.port != "22" else ""
                 host_row = Adw.ActionRow(
                     title=host.name,
-                    subtitle=f"{host.user}@{host.host}" + (f":{host.port}" if host.port != "22" else "")
+                    subtitle=f"{host.user}@{host.host}{port_suffix}"
                 )
                 host_row.set_activatable(True)
 
@@ -534,7 +535,9 @@ class MainWindow(Adw.ApplicationWindow):
                 edit_btn.set_valign(Gtk.Align.CENTER)
                 edit_btn.add_css_class("flat")
                 edit_btn.set_tooltip_text("Edit connection")
-                edit_btn.connect("clicked", lambda b, h=host: self._show_edit_host_dialog(dialog, h))
+                edit_btn.connect(
+                    "clicked", lambda b, h=host: self._show_edit_host_dialog(dialog, h)
+                )
                 host_row.add_suffix(edit_btn)
 
                 # Botón eliminar
@@ -544,7 +547,10 @@ class MainWindow(Adw.ApplicationWindow):
                 delete_btn.add_css_class("flat")
                 delete_btn.add_css_class("error")
                 delete_btn.set_tooltip_text("Delete connection")
-                delete_btn.connect("clicked", lambda b, h=host, d=dialog: self._confirm_delete_host(d, h))
+                delete_btn.connect(
+                    "clicked",
+                    lambda b, h=host, d=dialog: self._confirm_delete_host(d, h)
+                )
                 host_row.add_suffix(delete_btn)
 
                 # Flecha para conectar
@@ -552,7 +558,10 @@ class MainWindow(Adw.ApplicationWindow):
                 host_row.add_suffix(connect_arrow)
 
                 # Click para conectar
-                host_row.connect("activated", lambda r, h=host: self._show_connect_to_host_dialog(dialog, h))
+                host_row.connect(
+                    "activated",
+                    lambda r, h=host: self._show_connect_to_host_dialog(dialog, h)
+                )
                 remote_group.add(host_row)
         else:
             # Placeholder si no hay hosts
@@ -879,7 +888,9 @@ class MainWindow(Adw.ApplicationWindow):
                 self._create_remote_session(name, host.host, host.user, host.port)
 
         connect_btn.connect("clicked", on_connect_clicked)
-        name_entry.connect("apply", lambda e: [dialog.set_focus(None), on_connect_clicked(connect_btn)])
+        name_entry.connect(
+            "apply", lambda e: [dialog.set_focus(None), on_connect_clicked(connect_btn)]
+        )
 
         dialog.present()
         name_entry.grab_focus()

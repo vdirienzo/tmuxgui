@@ -284,7 +284,9 @@ class RemoteTmuxClient:
             f"{self.user}@{self.host}",
         ]
 
-    def _run_remote(self, tmux_args: list[str], timeout: float = 3.0) -> subprocess.CompletedProcess:
+    def _run_remote(
+        self, tmux_args: list[str], timeout: float = 3.0
+    ) -> subprocess.CompletedProcess:
         """Ejecuta un comando tmux remoto via SSH."""
         # Solo ejecutar si hay socket (conexión existente)
         if not Path(self._control_path).exists():
