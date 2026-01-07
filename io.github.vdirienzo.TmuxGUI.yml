@@ -1,4 +1,4 @@
-app-id: org.gnome.TmuxGUI
+app-id: io.github.vdirienzo.TmuxGUI
 runtime: org.gnome.Platform
 runtime-version: '49'
 sdk: org.gnome.Sdk
@@ -44,12 +44,12 @@ modules:
       - cp -r src/gnome_tmux /app/share/tmuxgui/
       - cp run.py /app/share/tmuxgui/
       - install -Dm755 tmuxgui.sh /app/bin/tmuxgui
-      - install -Dm644 data/org.gnome.TmuxGUI.desktop /app/share/applications/org.gnome.TmuxGUI.desktop
-      - install -Dm644 data/org.gnome.TmuxGUI.metainfo.xml /app/share/metainfo/org.gnome.TmuxGUI.metainfo.xml
-      - install -Dm644 data/icons/hicolor/48x48/apps/org.gnome.TmuxGUI.png /app/share/icons/hicolor/48x48/apps/org.gnome.TmuxGUI.png
-      - install -Dm644 data/icons/hicolor/64x64/apps/org.gnome.TmuxGUI.png /app/share/icons/hicolor/64x64/apps/org.gnome.TmuxGUI.png
-      - install -Dm644 data/icons/hicolor/128x128/apps/org.gnome.TmuxGUI.png /app/share/icons/hicolor/128x128/apps/org.gnome.TmuxGUI.png
-      - install -Dm644 data/icons/hicolor/512x512/apps/org.gnome.TmuxGUI.png /app/share/icons/hicolor/512x512/apps/org.gnome.TmuxGUI.png
+      - install -Dm644 data/io.github.vdirienzo.TmuxGUI.desktop /app/share/applications/io.github.vdirienzo.TmuxGUI.desktop
+      - install -Dm644 data/io.github.vdirienzo.TmuxGUI.metainfo.xml /app/share/metainfo/io.github.vdirienzo.TmuxGUI.metainfo.xml
+      - install -Dm644 data/icons/hicolor/48x48/apps/io.github.vdirienzo.TmuxGUI.png /app/share/icons/hicolor/48x48/apps/io.github.vdirienzo.TmuxGUI.png
+      - install -Dm644 data/icons/hicolor/64x64/apps/io.github.vdirienzo.TmuxGUI.png /app/share/icons/hicolor/64x64/apps/io.github.vdirienzo.TmuxGUI.png
+      - install -Dm644 data/icons/hicolor/128x128/apps/io.github.vdirienzo.TmuxGUI.png /app/share/icons/hicolor/128x128/apps/io.github.vdirienzo.TmuxGUI.png
+      - install -Dm644 data/icons/hicolor/512x512/apps/io.github.vdirienzo.TmuxGUI.png /app/share/icons/hicolor/512x512/apps/io.github.vdirienzo.TmuxGUI.png
     sources:
       - type: dir
         path: .

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>org.gnome.TmuxGUI</id>
+  <id>io.github.vdirienzo.TmuxGUI</id>
 
   <name>TmuxGUI</name>
   <summary>GNOME native frontend for tmux</summary>
@@ -29,7 +29,7 @@
     </p>
   </description>
 
-  <launchable type="desktop-id">org.gnome.TmuxGUI.desktop</launchable>
+  <launchable type="desktop-id">io.github.vdirienzo.TmuxGUI.desktop</launchable>
 
   <screenshots>
     <screenshot type="default">

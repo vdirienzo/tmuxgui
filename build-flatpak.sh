@@ -36,16 +36,16 @@ echo ""
 echo "Building TmuxGUI Flatpak..."
 echo ""
 
-flatpak-builder --force-clean build-dir org.gnome.TmuxGUI.yml
+flatpak-builder --force-clean build-dir io.github.vdirienzo.TmuxGUI.yml
 
 # Install locally
 echo ""
 echo "Installing locally..."
-flatpak-builder --user --install --force-clean build-dir org.gnome.TmuxGUI.yml
+flatpak-builder --user --install --force-clean build-dir io.github.vdirienzo.TmuxGUI.yml
 
 echo ""
 echo "=== Build complete! ==="
 echo ""
 echo "Run with:"
-echo "  flatpak run org.gnome.TmuxGUI"
+echo "  flatpak run io.github.vdirienzo.TmuxGUI"
 echo ""

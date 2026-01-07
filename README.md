@@ -233,7 +233,7 @@ cd gnome-tmux
 ./build-flatpak.sh
 
 # Run
-flatpak run org.gnome.TmuxGUI
+flatpak run io.github.vdirienzo.TmuxGUI
 ```
 
 #### Export Flatpak Bundle
@@ -241,7 +241,7 @@ flatpak run org.gnome.TmuxGUI
 To create a distributable `.flatpak` file:
 
 ```bash
-flatpak build-bundle ~/.local/share/flatpak/repo tmuxgui.flatpak org.gnome.TmuxGUI
+flatpak build-bundle ~/.local/share/flatpak/repo tmuxgui.flatpak io.github.vdirienzo.TmuxGUI
 ```
 
 Install on another machine:
@@ -486,7 +486,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - Screenshots visible in GNOME Software
 - Uses host tmux via `flatpak-spawn` for sandbox compatibility
 - Build script `./build-flatpak.sh`
-- Export bundle: `flatpak build-bundle ~/.local/share/flatpak/repo tmuxgui.flatpak org.gnome.TmuxGUI`
+- Export bundle: `flatpak build-bundle ~/.local/share/flatpak/repo tmuxgui.flatpak io.github.vdirienzo.TmuxGUI`
 
 ### [0.2.0] - 2026-01-06
 
