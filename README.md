@@ -114,13 +114,9 @@ The integrated file browser provides VS Code-style navigation:
 </p>
 
 <p align="center">
-  <img src="screenshots/02.png" alt="Integrated terminal" width="800">
-  <br><em>Integrated terminal attached to tmux session</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/03.png" alt="File browser" width="800">
-  <br><em>Built-in file browser with drag and drop support</em>
+  <img src="screenshots/02.png" alt="Integrated terminal" width="480">
+  <img src="screenshots/03.png" alt="File browser" width="480">
+  <br><em>Integrated terminal (left) • File browser with search and favorites (right)</em>
 </p>
 
 ## Requirements
