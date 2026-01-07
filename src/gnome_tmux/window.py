@@ -29,7 +29,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._animation: Adw.TimedAnimation | None = None
         self._file_tree_animation: Adw.TimedAnimation | None = None
 
-        self.set_title("gnome-tmux")
+        self.set_title("TmuxGUI")
         self.set_default_size(1000, 700)
 
         # Layout principal
@@ -49,7 +49,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Header bar
         header = Adw.HeaderBar()
-        title_widget = Adw.WindowTitle(title="gnome-tmux", subtitle="tmux session manager")
+        title_widget = Adw.WindowTitle(title="TmuxGUI")
         header.set_title_widget(title_widget)
 
         # Botón toggle sidebar
@@ -792,7 +792,7 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_help_clicked(self, button: Gtk.Button):
         """Muestra el diálogo de ayuda."""
         dialog = Adw.Window(transient_for=self)
-        dialog.set_title("Help - gnome-tmux")
+        dialog.set_title("Help - TmuxGUI")
         dialog.set_default_size(500, 600)
         dialog.set_modal(True)
 
@@ -824,7 +824,7 @@ class MainWindow(Adw.ApplicationWindow):
         logo.set_pixel_size(64)
         logo_box.append(logo)
 
-        title = Gtk.Label(label="gnome-tmux")
+        title = Gtk.Label(label="TmuxGUI")
         title.add_css_class("title-1")
         logo_box.append(title)
 
