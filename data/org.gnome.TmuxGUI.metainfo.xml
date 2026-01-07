@@ -10,26 +10,51 @@
 
   <description>
     <p>
-      TmuxGUI is a modern, native GNOME application that provides a graphical
-      interface for managing tmux sessions, windows, and terminals.
+      TmuxGUI is a modern, native GNOME application that provides a beautiful
+      graphical interface for managing tmux sessions, windows, and terminals.
+      Built with GTK4 and Libadwaita for a seamless GNOME desktop experience.
     </p>
-    <p>Features include:</p>
+    <p>Key Features:</p>
     <ul>
-      <li>Session management: create, rename, delete tmux sessions</li>
-      <li>Window management: create, rename, close and reorder windows</li>
-      <li>Integrated VTE terminal with full tmux support</li>
-      <li>File browser with search and favorites</li>
-      <li>Drag and drop support for reordering</li>
-      <li>Native GNOME/Libadwaita look and feel</li>
+      <li>Session Management - Create, rename, and delete tmux sessions with visual indicators for attached sessions</li>
+      <li>Window Management - Create, rename, close, and reorder windows with drag-and-drop support</li>
+      <li>Integrated Terminal - Full-featured VTE terminal with automatic tmux attachment</li>
+      <li>File Browser - VS Code-style file tree with search, favorites, and context menu operations</li>
+      <li>Theme System - 10 beautiful color schemes including Nord, Dracula, Catppuccin, and more</li>
+      <li>Native Look - Follows GNOME Human Interface Guidelines with Libadwaita styling</li>
     </ul>
+    <p>
+      Perfect for developers and system administrators who want a graphical way
+      to manage their tmux sessions while keeping the power of the terminal.
+    </p>
   </description>
 
   <launchable type="desktop-id">org.gnome.TmuxGUI.desktop</launchable>
 
   <screenshots>
     <screenshot type="default">
-      <caption>Main window with session sidebar and terminal</caption>
-      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/main.png</image>
+      <caption>Session and window management with expandable tree view</caption>
+      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/01.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Integrated terminal with tmux session attached</caption>
+      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/02.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>File browser with search and navigation</caption>
+      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/03.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Theme selector with multiple color schemes</caption>
+      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/04.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Dark theme with Nord color scheme</caption>
+      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/05.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Dracula theme with session management</caption>
+      <image>https://raw.githubusercontent.com/vdirienzo/gnome-tmux/main/screenshots/06.png</image>
     </screenshot>
   </screenshots>
 
@@ -39,6 +64,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.3.0" date="2026-01-06">
+      <description>
+        <p>New features:</p>
+        <ul>
+          <li>Theme selector with 10 color schemes (Nord, Dracula, Catppuccin, etc.)</li>
+          <li>Flatpak packaging support</li>
+          <li>Improved session and window management</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-01-06">
       <description>
         <p>Initial release with full session and window management.</p>
