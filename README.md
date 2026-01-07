@@ -37,6 +37,18 @@
 | **Visual indicators** | Active window shown in bold with accent color |
 | **Quick attach** | Click any window to attach terminal immediately |
 
+### Remote Sessions (SSH)
+
+| Feature | Description |
+|---------|-------------|
+| **SSH connections** | Connect to remote tmux sessions via SSH |
+| **Host management** | Save, edit, and delete remote hosts |
+| **Quick connect** | Click saved host to connect instantly |
+| **Custom names** | Give friendly names to saved connections |
+| **Persistent storage** | Hosts saved to `~/.config/gnome-tmux/remote_hosts.json` |
+| **Session operations** | Create, rename, attach to remote sessions |
+| **ControlMaster** | Persistent SSH connections for performance |
+
 ### Integrated Terminal
 
 | Feature | Description |
@@ -90,7 +102,7 @@ The integrated file browser provides VS Code-style navigation:
 #### Drag & Drop
 | Feature | Description |
 |---------|-------------|
-| **Drag files** | Drag any file/folder to copy path |
+| **Drag to terminal** | Drag any file or folder to paste its path in the terminal |
 | **Search results** | Navigate to file location button |
 
 ### Themes
@@ -322,6 +334,7 @@ After saving, reload with `tmux source-file ~/.tmux.conf` or restart tmux.
 
 ### Drag and Drop
 
+- **Drag to terminal**: Drag any file or folder from the file browser to paste its path in the terminal
 - **Reorder windows**: Drag a window row to swap positions within the same session
 - **Reorder sidebar**: Drag the handle (≡) on section headers to swap Sessions/Files sections
 
@@ -334,12 +347,15 @@ tmuxgui/
 │       ├── __init__.py
 │       ├── main.py              # Application entry point
 │       ├── window.py            # Main window with sidebar and terminal
-│       ├── tmux_client.py       # Tmux subprocess wrapper
+│       ├── tmux_client.py       # Tmux subprocess wrapper (local + remote)
+│       ├── remote_hosts.py      # SSH host management
+│       ├── themes.py            # Theme manager
 │       └── widgets/
 │           ├── __init__.py
-│           ├── session_row.py   # Session and window row widgets
-│           ├── file_tree.py     # File browser widget
-│           └── terminal_view.py # VTE terminal wrapper
+│           ├── session_row.py       # Session and window row widgets
+│           ├── remote_session_row.py # Remote session widgets
+│           ├── file_tree.py         # File browser widget
+│           └── terminal_view.py     # VTE terminal wrapper
 ├── data/
 │   └── icons/                   # Application icons
 ├── run.py                       # Development launcher
@@ -355,11 +371,15 @@ tmuxgui/
 |-----------|-------------|
 | `GnomeTmuxApplication` | Adw.Application subclass, handles lifecycle |
 | `MainWindow` | Main window with sidebar (sessions + files) and terminal |
-| `TmuxClient` | Wrapper for tmux CLI commands via subprocess |
+| `TmuxClient` | Wrapper for local tmux CLI commands via subprocess |
+| `RemoteTmuxClient` | SSH-based tmux client with ControlMaster |
+| `RemoteHostsManager` | Persistent storage for saved SSH hosts |
 | `SessionRow` | Adw.ExpanderRow showing session with child windows |
+| `RemoteSessionRow` | Session row for remote SSH connections |
 | `WindowRow` | Adw.ActionRow for individual tmux windows |
 | `FileTree` | Recursive file browser with CRUD operations |
 | `TerminalView` | VTE terminal with tmux attach functionality |
+| `ThemeManager` | Color scheme management and persistence |
 
 ### Data Flow
 
@@ -423,6 +443,28 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` Maintenance tasks
 
 ## Changelog
+
+### [0.4.0] - 2026-01-07
+
+#### Added
+
+**Remote Sessions (SSH)**
+- Connect to remote tmux sessions via SSH
+- Host management: save, edit, delete connections
+- Quick connect from saved hosts list
+- Custom names for saved connections
+- Persistent storage in `~/.config/gnome-tmux/remote_hosts.json`
+- Create, rename, attach to remote sessions
+- SSH ControlMaster for persistent connections
+- Async loading to keep UI responsive
+
+**File Browser**
+- Drag folders to terminal (paste path, same as files)
+
+**UI Improvements**
+- Compact sidebar buttons (linked button groups)
+- Redesigned session dialog with host management
+- Fixed GTK focus-out warnings on dialog close
 
 ### [0.3.0] - 2026-01-06
 

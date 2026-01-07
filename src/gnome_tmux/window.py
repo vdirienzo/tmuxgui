@@ -1543,9 +1543,10 @@ class MainWindow(Adw.ApplicationWindow):
         features = [
             ("Session Management", "Create, rename, delete tmux sessions"),
             ("Window Management", "Create, rename, close and reorder windows"),
+            ("Remote Sessions", "Connect to remote hosts via SSH"),
             ("Integrated Terminal", "VTE terminal with full tmux support"),
             ("File Browser", "Navigate filesystem with CRUD operations"),
-            ("Drag & Drop", "Reorder windows and sidebar sections"),
+            ("Drag & Drop", "Drag files/folders to terminal, reorder sections"),
         ]
 
         for title_text, desc in features:
@@ -1579,10 +1580,11 @@ class MainWindow(Adw.ApplicationWindow):
         tips_group = Adw.PreferencesGroup(title="Quick Start")
 
         tips = [
-            ("1. Create a session", "Click + button in the sidebar header"),
-            ("2. Select a window", "Click on any window to attach terminal"),
-            ("3. Work in terminal", "Use standard tmux keybindings"),
-            ("4. Detach", "Press Ctrl+B d to detach from session"),
+            ("1. Create a session", "Click + button for local or remote sessions"),
+            ("2. Remote hosts", "Save SSH connections for quick access"),
+            ("3. Select a window", "Click on any window to attach terminal"),
+            ("4. Drag to terminal", "Drag files/folders to paste their path"),
+            ("5. Detach", "Press Ctrl+B d to detach from session"),
         ]
 
         for tip_title, tip_desc in tips:
