@@ -11,9 +11,11 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, GLib, GObject, Gtk
 
+from .remote_hosts import RemoteHost, remote_hosts_manager
 from .themes import theme_manager
-from .tmux_client import TmuxClient
+from .tmux_client import RemoteTmuxClient, TmuxClient
 from .widgets import FileTree, SessionRow, TerminalView
+from .widgets.remote_session_row import RemoteSessionRow
 
 
 class MainWindow(Adw.ApplicationWindow):
@@ -29,6 +31,9 @@ class MainWindow(Adw.ApplicationWindow):
         self._expanded_sessions: set[str] | None = None  # None = primera carga
         self._animation: Adw.TimedAnimation | None = None
         self._file_tree_animation: Adw.TimedAnimation | None = None
+        # Track remote connections: {f"{user}@{host}:{port}": RemoteTmuxClient}
+        self._remote_clients: dict[str, RemoteTmuxClient] = {}
+        self._closing = False  # Flag para indicar que la app se está cerrando
 
         self.set_title("TmuxGUI")
         self.set_default_size(1000, 700)
@@ -331,40 +336,52 @@ class MainWindow(Adw.ApplicationWindow):
         return box
 
     def _refresh_sessions(self):
-        """Actualiza la lista de sesiones."""
-        # Guardar estado de expansión actual (solo si ya hay filas)
+        """Actualiza la lista de sesiones (locales y remotas)."""
+        # Guardar estado de expansión y separar filas locales de remotas
+        remote_rows = []
         index = 0
         while True:
             row = self.sessions_list.get_row_at_index(index)
             if row is None:
                 break
             if index == 0 and self._expanded_sessions is None:
-                # Primera vez que hay filas, inicializar el set
                 self._expanded_sessions = set()
-            if isinstance(row, SessionRow):
+            if isinstance(row, RemoteSessionRow):
+                key = f"remote:{row.user}@{row.host}:{row.session.name}"
                 if row.get_expanded():
-                    self._expanded_sessions.add(row.session.name)
-                elif row.session.name in self._expanded_sessions:
-                    self._expanded_sessions.discard(row.session.name)
+                    self._expanded_sessions.add(key)
+                elif key in self._expanded_sessions:
+                    self._expanded_sessions.discard(key)
+                remote_rows.append(row)
+            elif isinstance(row, SessionRow):
+                key = f"local:{row.session.name}"
+                if row.get_expanded():
+                    self._expanded_sessions.add(key)
+                elif key in self._expanded_sessions:
+                    self._expanded_sessions.discard(key)
             index += 1
 
-        # Limpiar lista actual
+        # Limpiar solo filas locales (mantener remotas hasta que lleguen datos nuevos)
+        index = 0
         while True:
-            row = self.sessions_list.get_row_at_index(0)
+            row = self.sessions_list.get_row_at_index(index)
             if row is None:
                 break
-            self.sessions_list.remove(row)
+            if isinstance(row, SessionRow):
+                self.sessions_list.remove(row)
+            else:
+                index += 1
 
         # Verificar si tmux está disponible
         if not self.tmux.is_available:
             self._show_error_placeholder("tmux not installed")
             return
 
-        # Obtener sesiones
+        # Obtener sesiones locales (rápido, no bloquea)
         sessions = self.tmux.list_sessions()
 
-        # Agregar filas
-        for session in sessions:
+        # Agregar filas de sesiones locales AL INICIO (antes de las remotas)
+        for i, session in enumerate(sessions):
             row = SessionRow(session)
             row.connect("delete-requested", self._on_delete_requested)
             row.connect("window-selected", self._on_window_selected)
@@ -374,17 +391,89 @@ class MainWindow(Adw.ApplicationWindow):
             row.connect("exit-window-requested", self._on_exit_window_requested)
             row.connect("swap-windows-requested", self._on_swap_windows_requested)
             # Restaurar estado de expansión
+            key = f"local:{session.name}"
             if self._expanded_sessions is None:
-                # Primera carga: expandir sesiones activas
                 if session.attached:
                     row.set_expanded(True)
-            elif session.name in self._expanded_sessions:
+            elif key in self._expanded_sessions:
                 row.set_expanded(True)
-            self.sessions_list.append(row)
+            self.sessions_list.insert(row, i)
 
         # Inicializar el set si es la primera carga
         if self._expanded_sessions is None:
-            self._expanded_sessions = set(s.name for s in sessions if s.attached)
+            self._expanded_sessions = set(f"local:{s.name}" for s in sessions if s.attached)
+
+        # Cargar sesiones remotas en background (no bloquea UI)
+        if self._remote_clients:
+            self._refresh_remote_sessions_async()
+
+    def _refresh_remote_sessions_async(self):
+        """Carga sesiones remotas en un thread separado."""
+        import threading
+
+        # Copiar clientes para evitar modificaciones durante el thread
+        clients_snapshot = list(self._remote_clients.items())
+
+        def fetch_remote():
+            if self._closing:
+                return
+
+            results = []
+            for client_key, client in clients_snapshot:
+                if self._closing:
+                    return
+                try:
+                    remote_sessions = client.list_sessions()
+                    results.append((client, remote_sessions))
+                except Exception:
+                    pass  # Ignorar errores de conexión
+
+            if self._closing:
+                return
+
+            # Actualizar UI en el hilo principal
+            GLib.idle_add(self._add_remote_sessions_to_ui, results)
+
+        thread = threading.Thread(target=fetch_remote, daemon=True)
+        thread.start()
+
+    def _add_remote_sessions_to_ui(self, results: list):
+        """Agrega sesiones remotas a la UI (llamar desde hilo principal)."""
+        if self._closing:
+            return False
+
+        # Primero eliminar todas las filas remotas existentes
+        index = 0
+        while True:
+            row = self.sessions_list.get_row_at_index(index)
+            if row is None:
+                break
+            if isinstance(row, RemoteSessionRow):
+                self.sessions_list.remove(row)
+            else:
+                index += 1
+
+        # Agregar las nuevas filas remotas
+        for client, remote_sessions in results:
+            for session in remote_sessions:
+                row = RemoteSessionRow(
+                    session=session,
+                    host=client.host,
+                    user=client.user,
+                    port=client.port,
+                    connected=True,
+                )
+                row.connect("window-selected", self._on_remote_window_selected)
+                row.connect("rename-requested", self._on_remote_rename_requested)
+                row.connect("kill-requested", self._on_remote_kill_requested)
+                row.connect("new-window-requested", self._on_remote_new_window_requested)
+                # Restaurar estado de expansión
+                key = f"remote:{client.user}@{client.host}:{session.name}"
+                if self._expanded_sessions and key in self._expanded_sessions:
+                    row.set_expanded(True)
+                self.sessions_list.append(row)
+
+        return False  # No repetir
 
     def _show_error_placeholder(self, message: str):
         """Muestra un mensaje de error en el placeholder."""
@@ -406,15 +495,338 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_new_session_clicked(self, button: Gtk.Button):
         """Muestra diálogo para crear nueva sesión."""
+        dialog = Adw.Window(transient_for=self)
+        dialog.set_title("New Session")
+        dialog.set_default_size(400, 420)
+        dialog.set_modal(True)
+
+        # Toolbar view
+        toolbar_view = Adw.ToolbarView()
+        dialog.set_content(toolbar_view)
+
+        # Header
+        header = Adw.HeaderBar()
+        header.set_show_end_title_buttons(False)
+
+        cancel_btn = Gtk.Button(label="Cancel")
+        cancel_btn.connect("clicked", lambda b: dialog.close())
+        header.pack_start(cancel_btn)
+
+        create_btn = Gtk.Button(label="Create")
+        create_btn.add_css_class("suggested-action")
+        header.pack_end(create_btn)
+
+        toolbar_view.add_top_bar(header)
+
+        # Contenido
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        # Grupo: Tipo de sesión
+        type_group = Adw.PreferencesGroup(title="Session Type")
+
+        # Radio buttons para Local/Remote
+        local_row = Adw.ActionRow(title="Local", subtitle="Create session on this machine")
+        local_check = Gtk.CheckButton()
+        local_check.set_active(True)
+        local_row.add_prefix(local_check)
+        local_row.set_activatable_widget(local_check)
+        type_group.add(local_row)
+
+        remote_row = Adw.ActionRow(title="Remote (SSH)", subtitle="Connect to tmux on a remote server")
+        remote_check = Gtk.CheckButton()
+        remote_check.set_group(local_check)
+        remote_row.add_prefix(remote_check)
+        remote_row.set_activatable_widget(remote_check)
+        type_group.add(remote_row)
+
+        content.append(type_group)
+
+        # Grupo: Nombre de sesión
+        name_group = Adw.PreferencesGroup(title="Session Name")
+        name_entry = Adw.EntryRow(title="Name")
+        name_entry.set_text("")
+        name_group.add(name_entry)
+        content.append(name_group)
+
+        # Grupo: Conexión SSH (oculto por defecto)
+        ssh_group = Adw.PreferencesGroup(title="SSH Connection")
+        ssh_group.set_visible(False)
+
+        # Selector de hosts guardados
+        saved_hosts = remote_hosts_manager.get_hosts()
+        if saved_hosts:
+            hosts_row = Adw.ComboRow(title="Saved Hosts")
+            hosts_model = Gtk.StringList()
+            hosts_model.append("New connection...")
+            for h in saved_hosts:
+                hosts_model.append(f"{h.name} ({h.user}@{h.host})")
+            hosts_row.set_model(hosts_model)
+            ssh_group.add(hosts_row)
+
+        host_entry = Adw.EntryRow(title="Host")
+        host_entry.set_text("")
+        ssh_group.add(host_entry)
+
+        user_entry = Adw.EntryRow(title="User")
+        user_entry.set_text("")
+        ssh_group.add(user_entry)
+
+        port_entry = Adw.EntryRow(title="Port")
+        port_entry.set_text("22")
+        ssh_group.add(port_entry)
+
+        # Switch para attach a sesión existente
+        attach_row = Adw.SwitchRow(
+            title="Attach to existing",
+            subtitle="Connect to an existing session instead of creating new"
+        )
+        ssh_group.add(attach_row)
+
+        # Handler para seleccionar host guardado
+        if saved_hosts:
+            def on_host_selected(combo, _pspec):
+                idx = combo.get_selected()
+                if idx > 0:  # 0 es "New connection..."
+                    selected = saved_hosts[idx - 1]
+                    host_entry.set_text(selected.host)
+                    user_entry.set_text(selected.user)
+                    port_entry.set_text(selected.port)
+                    if not name_entry.get_text():
+                        name_entry.set_text(selected.name)
+                else:
+                    host_entry.set_text("")
+                    user_entry.set_text("")
+                    port_entry.set_text("22")
+            hosts_row.connect("notify::selected", on_host_selected)
+
+        content.append(ssh_group)
+
+        # Toggle visibilidad de SSH group y name group
+        def on_remote_toggled(check):
+            is_remote = check.get_active()
+            ssh_group.set_visible(is_remote)
+            # Si attach está activo, ocultar nombre
+            if is_remote and attach_row.get_active():
+                name_group.set_visible(False)
+            else:
+                name_group.set_visible(True)
+
+        def on_attach_toggled(row, _pspec):
+            name_group.set_visible(not row.get_active())
+
+        remote_check.connect("toggled", on_remote_toggled)
+        attach_row.connect("notify::active", on_attach_toggled)
+
+        toolbar_view.set_content(content)
+
+        # Handler del botón Create
+        def on_create_clicked(btn):
+            is_remote = remote_check.get_active()
+
+            if is_remote:
+                host = host_entry.get_text().strip()
+                user = user_entry.get_text().strip()
+                port = port_entry.get_text().strip() or "22"
+
+                if not host or not user:
+                    self._show_toast("Host and user are required for SSH")
+                    return
+
+                dialog.close()
+
+                if attach_row.get_active():
+                    # Attach a sesión existente (pide nombre después)
+                    self._attach_remote_existing(host, user, port)
+                else:
+                    # Crear nueva sesión remota
+                    name = name_entry.get_text().strip()
+                    if not name:
+                        self._show_toast("Session name is required")
+                        return
+                    self._create_remote_session(name, host, user, port)
+            else:
+                # Crear sesión local
+                name = name_entry.get_text().strip()
+                if not name:
+                    self._show_toast("Session name is required")
+                    return
+
+                dialog.close()
+                if self.tmux.create_session(name):
+                    self._refresh_sessions()
+                    GLib.idle_add(self._attach_to_session, name)
+                else:
+                    self._show_toast("Failed to create session")
+
+        create_btn.connect("clicked", on_create_clicked)
+
+        # Enter en name_entry activa create
+        name_entry.connect("apply", lambda e: on_create_clicked(create_btn))
+
+        dialog.present()
+        name_entry.grab_focus()
+
+    def _attach_to_session(self, name: str, window_index: int | None = None):
+        """Adjunta al terminal a una sesión/ventana."""
+        command = self.tmux.get_attach_command(name, window_index)
+        self.terminal_view.attach_session(name, command)
+        self.terminal_view.grab_focus()
+        return False
+
+    def _get_remote_client(self, host: str, user: str, port: str) -> RemoteTmuxClient:
+        """Obtiene o crea un cliente remoto para el host dado."""
+        key = f"{user}@{host}:{port}"
+        if key not in self._remote_clients:
+            self._remote_clients[key] = RemoteTmuxClient(host, user, port)
+        return self._remote_clients[key]
+
+    def _create_remote_session(self, name: str, host: str, user: str, port: str):
+        """Crea una sesión en un servidor remoto via SSH."""
+        from datetime import datetime, timezone
+
+        client = self._get_remote_client(host, user, port)
+        command = client.get_new_session_command(name)
+
+        # Ejecutar en el terminal (maneja password prompts)
+        self.terminal_view.attach_session(f"{name}@{host}", command)
+        self.terminal_view.grab_focus()
+
+        # Guardar host para uso futuro
+        remote_host = RemoteHost(
+            name=name,
+            host=host,
+            user=user,
+            port=port,
+            last_used=datetime.now(timezone.utc).isoformat()
+        )
+        remote_hosts_manager.add_host(remote_host)
+
+        # Refresh que reintenta hasta encontrar sesiones
+        self._schedule_remote_refresh_until_sessions_found(host, user, port)
+
+    def _attach_remote_existing(self, host: str, user: str, port: str):
+        """Muestra diálogo para seleccionar sesión remota existente."""
+        from datetime import datetime, timezone
+
+        # Guardar host para uso futuro
+        remote_host = RemoteHost(
+            name=f"{user}@{host}",
+            host=host,
+            user=user,
+            port=port,
+            last_used=datetime.now(timezone.utc).isoformat()
+        )
+        remote_hosts_manager.add_host(remote_host)
+
         dialog = Adw.MessageDialog(
             transient_for=self,
-            heading="New Session",
-            body="Enter a name for the new tmux session:",
+            heading="Attach to Remote Session",
+            body=f"Enter the session name on {host}:",
         )
 
-        # Entry para el nombre
         entry = Gtk.Entry()
         entry.set_placeholder_text("session-name")
+        entry.connect("activate", lambda e: dialog.response("attach"))
+        dialog.set_extra_child(entry)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("attach", "Attach")
+        dialog.set_response_appearance("attach", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("attach")
+
+        def on_response(dlg, response):
+            dlg.close()
+            if response == "attach":
+                name = entry.get_text().strip()
+                if name:
+                    self._attach_remote_session(host, user, port, name)
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def _attach_remote_session(
+        self, host: str, user: str, port: str, session_name: str, window_index: int | None = None
+    ):
+        """Adjunta el terminal a una sesión remota via SSH."""
+        client = self._get_remote_client(host, user, port)
+        command = client.get_attach_command(session_name, window_index)
+
+        display_name = f"{session_name}@{host}"
+        if window_index is not None:
+            display_name += f":{window_index}"
+
+        self.terminal_view.attach_session(display_name, command)
+        self.terminal_view.grab_focus()
+
+        # Refresh para actualizar lista
+        self._schedule_remote_refresh_until_sessions_found(host, user, port)
+
+    def _schedule_remote_refresh_until_sessions_found(
+        self, host: str, user: str, port: str
+    ):
+        """Programa refreshes hasta encontrar sesiones del host remoto."""
+        import threading
+
+        state = {"found": False}
+        key = f"{user}@{host}:{port}"
+
+        def do_check():
+            """Ejecuta el check en background y programa el siguiente."""
+            if self._closing or state["found"]:
+                return False
+
+            if key not in self._remote_clients:
+                return False
+
+            # Ejecutar check en background thread
+            def background_check():
+                if self._closing or state["found"]:
+                    return
+
+                client = self._remote_clients.get(key)
+                if not client:
+                    return
+
+                sessions = client.list_sessions()
+
+                if self._closing:
+                    return
+
+                if sessions:
+                    state["found"] = True
+                    GLib.idle_add(self._refresh_sessions)
+
+            thread = threading.Thread(target=background_check, daemon=True)
+            thread.start()
+
+            return True  # Continuar polling hasta que found=True
+
+        # Polling cada 2 segundos hasta encontrar sesiones
+        if not self._closing:
+            GLib.timeout_add(2000, do_check)
+
+    def _on_remote_window_selected(
+        self, row, session_name: str, window_index: int, host: str, user: str, port: str
+    ):
+        """Conecta a una ventana remota seleccionada."""
+        self._attach_remote_session(host, user, port, session_name, window_index)
+
+    def _on_remote_new_window_requested(
+        self, row, session_name: str, host: str, user: str, port: str
+    ):
+        """Muestra diálogo para crear nueva ventana remota."""
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="New Window",
+            body=f"Enter a name for the new window in '{session_name}' on {host}:",
+        )
+
+        entry = Gtk.Entry()
+        entry.set_placeholder_text("window-name (optional)")
         entry.connect("activate", lambda e: dialog.response("create"))
         dialog.set_extra_child(entry)
 
@@ -423,28 +835,75 @@ class MainWindow(Adw.ApplicationWindow):
         dialog.set_response_appearance("create", Adw.ResponseAppearance.SUGGESTED)
         dialog.set_default_response("create")
 
-        dialog.connect("response", self._on_new_session_response, entry)
+        def on_response(dlg, response):
+            dlg.close()
+            if response == "create":
+                window_name = entry.get_text().strip() or None
+                client = self._get_remote_client(host, user, port)
+                if client.create_window(session_name, window_name):
+                    self._refresh_sessions()
+                else:
+                    self._show_toast("Failed to create remote window")
+
+        dialog.connect("response", on_response)
         dialog.present()
 
-    def _on_new_session_response(self, dialog: Adw.MessageDialog, response: str, entry: Gtk.Entry):
-        """Maneja la respuesta del diálogo de nueva sesión."""
-        dialog.close()
-        if response == "create":
-            name = entry.get_text().strip()
-            if name:
-                if self.tmux.create_session(name):
-                    self._refresh_sessions()
-                    # Auto-attach a la nueva sesión
-                    GLib.idle_add(self._attach_to_session, name)
-                else:
-                    self._show_toast("Failed to create session")
+    def _on_remote_rename_requested(self, row, name: str, host: str, user: str, port: str):
+        """Muestra diálogo para renombrar sesión remota."""
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Rename Remote Session",
+            body=f"Enter new name for '{name}' on {host}:",
+        )
 
-    def _attach_to_session(self, name: str, window_index: int | None = None):
-        """Adjunta al terminal a una sesión/ventana."""
-        command = self.tmux.get_attach_command(name, window_index)
-        self.terminal_view.attach_session(name, command)
-        self.terminal_view.grab_focus()
-        return False
+        entry = Gtk.Entry()
+        entry.set_text(name)
+        entry.connect("activate", lambda e: dialog.response("rename"))
+        dialog.set_extra_child(entry)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("rename", "Rename")
+        dialog.set_response_appearance("rename", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("rename")
+
+        def on_response(dlg, response):
+            dlg.close()
+            if response == "rename":
+                new_name = entry.get_text().strip()
+                if new_name and new_name != name:
+                    client = self._get_remote_client(host, user, port)
+                    if client.rename_session(name, new_name):
+                        self._refresh_sessions()
+                    else:
+                        self._show_toast("Failed to rename remote session")
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def _on_remote_kill_requested(self, row, name: str, host: str, user: str, port: str):
+        """Confirma y elimina una sesión remota."""
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Kill Remote Session?",
+            body=f"Are you sure you want to kill '{name}' on {host}?\n"
+                 "This will terminate all processes in the session.",
+        )
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("kill", "Kill")
+        dialog.set_response_appearance("kill", Adw.ResponseAppearance.DESTRUCTIVE)
+
+        def on_response(dlg, response):
+            dlg.close()
+            if response == "kill":
+                client = self._get_remote_client(host, user, port)
+                if client.kill_session(name):
+                    self._refresh_sessions()
+                else:
+                    self._show_toast("Failed to kill remote session")
+
+        dialog.connect("response", on_response)
+        dialog.present()
 
     def _on_window_selected(self, row, session_name: str, window_index: int):
         """Maneja la selección de una ventana específica."""
@@ -601,6 +1060,8 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_refresh_timeout(self) -> bool:
         """Callback del timeout de auto-refresh."""
+        if self._closing:
+            return False  # Detener el timeout
         self._refresh_sessions()
         return True
 
@@ -1009,7 +1470,30 @@ class MainWindow(Adw.ApplicationWindow):
 
     def do_close_request(self) -> bool:
         """Maneja el cierre de la ventana."""
+        import os
+        import signal
+
+        # Marcar que estamos cerrando para detener threads de polling
+        self._closing = True
+
+        # Cancelar auto-refresh
         if self._refresh_timeout_id is not None:
             GLib.source_remove(self._refresh_timeout_id)
             self._refresh_timeout_id = None
+
+        # Matar proceso del terminal VTE si existe
+        if hasattr(self, 'terminal_view') and self.terminal_view._pid is not None:
+            try:
+                os.kill(self.terminal_view._pid, signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                pass
+
+        # Cerrar conexiones SSH (forzar cierre)
+        for client in self._remote_clients.values():
+            client.close_connection(force=True)
+        self._remote_clients.clear()
+
+        # Forzar salida del proceso para evitar que threads bloqueen
+        GLib.timeout_add(500, lambda: os._exit(0))
+
         return False

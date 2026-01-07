@@ -71,13 +71,20 @@ class TerminalView(Gtk.Box):
 
     def attach_session(self, session_name: str, tmux_command: list[str]):
         """Adjunta el terminal a una sesión de tmux."""
-        # Si ya hay un proceso, esperar a que termine
+        # Si ya hay un proceso activo, matarlo (tmux detecta desconexión automáticamente)
         if self._pid is not None:
-            self.terminal.reset(True, True)
+            try:
+                import signal
+                os.kill(self._pid, signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                pass  # Proceso ya terminó
+            self._pid = None
 
+        # Limpiar terminal
+        self.terminal.reset(True, True)
         self._current_session = session_name
 
-        # Spawn tmux attach
+        # Spawn nuevo proceso
         self.terminal.spawn_async(
             pty_flags=Vte.PtyFlags.DEFAULT,
             working_directory=os.environ.get("HOME", "/"),

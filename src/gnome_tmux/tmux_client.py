@@ -8,11 +8,19 @@ import os
 import shutil
 import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 def is_flatpak() -> bool:
     """Detecta si está corriendo en un sandbox de Flatpak."""
     return os.path.exists("/.flatpak-info")
+
+
+def get_ssh_control_path(host: str, user: str, port: str) -> str:
+    """Retorna el path para SSH ControlMaster socket."""
+    socket_dir = Path.home() / ".ssh" / "gnome-tmux-sockets"
+    socket_dir.mkdir(parents=True, exist_ok=True)
+    return str(socket_dir / f"{user}@{host}-{port}")
 
 
 @dataclass
@@ -253,3 +261,189 @@ class TmuxClient:
             capture_output=True,
         )
         return result.returncode == 0
+
+
+class RemoteTmuxClient:
+    """Cliente para interactuar con tmux en un servidor remoto via SSH."""
+
+    def __init__(self, host: str, user: str, port: str = "22"):
+        self.host = host
+        self.user = user
+        self.port = port
+        self._control_path = get_ssh_control_path(host, user, port)
+
+    def _get_ssh_base(self) -> list[str]:
+        """Retorna el comando base SSH con ControlMaster para comandos background."""
+        return [
+            "ssh",
+            "-p", self.port,
+            "-o", "ControlMaster=no",  # Solo usar socket existente, no crear
+            "-o", f"ControlPath={self._control_path}",
+            "-o", "BatchMode=yes",  # No pedir password, fallar si no hay conexión
+            "-o", "ConnectTimeout=2",
+            f"{self.user}@{self.host}",
+        ]
+
+    def _run_remote(self, tmux_args: list[str], timeout: float = 3.0) -> subprocess.CompletedProcess:
+        """Ejecuta un comando tmux remoto via SSH."""
+        # Solo ejecutar si hay socket (conexión existente)
+        if not Path(self._control_path).exists():
+            return subprocess.CompletedProcess([], 1, "", "no connection")
+
+        # Construir comando remoto - escapar comillas en argumentos
+        import shlex
+        escaped_args = [shlex.quote(arg) for arg in tmux_args]
+        remote_cmd = "tmux " + " ".join(escaped_args)
+        cmd = self._get_ssh_base() + [remote_cmd]
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return subprocess.CompletedProcess(cmd, 1, "", "timeout")
+
+    def is_connected(self) -> bool:
+        """Verifica si hay una conexión SSH activa (ControlMaster)."""
+        # Check if socket exists
+        if not Path(self._control_path).exists():
+            return False
+        # Quick check with ssh -O check
+        cmd = [
+            "ssh", "-O", "check",
+            "-o", f"ControlPath={self._control_path}",
+            f"{self.user}@{self.host}",
+        ]
+        result = subprocess.run(cmd, capture_output=True, timeout=2)
+        return result.returncode == 0
+
+    def has_server(self) -> bool:
+        """Verifica si hay un servidor tmux corriendo en el remoto."""
+        if not self.is_connected():
+            return False
+        result = self._run_remote(["has-session"])
+        return result.returncode == 0
+
+    def list_sessions(self) -> list[Session]:
+        """Lista todas las sesiones de tmux en el servidor remoto."""
+        fmt = "#{session_name}:#{session_windows}:#{session_attached}"
+        result = self._run_remote(["list-sessions", "-F", fmt])
+
+        if result.returncode != 0:
+            return []
+
+        sessions = []
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            parts = line.split(":")
+            if len(parts) >= 3:
+                session = Session(
+                    name=parts[0],
+                    window_count=int(parts[1]),
+                    attached=parts[2] == "1",
+                    windows=[],
+                )
+                session.windows = self._list_windows(session.name)
+                sessions.append(session)
+
+        return sessions
+
+    def _list_windows(self, session_name: str) -> list[Window]:
+        """Lista las ventanas de una sesión remota."""
+        fmt = "#{window_index}:#{window_name}:#{window_active}"
+        result = self._run_remote(["list-windows", "-t", session_name, "-F", fmt])
+
+        if result.returncode != 0:
+            return []
+
+        windows = []
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            parts = line.split(":")
+            if len(parts) >= 3:
+                windows.append(
+                    Window(
+                        index=int(parts[0]),
+                        name=parts[1],
+                        active=parts[2] == "1",
+                    )
+                )
+        return windows
+
+    def get_attach_command(self, session_name: str, window_index: int | None = None) -> list[str]:
+        """Retorna el comando para adjuntar a una sesión/ventana remota."""
+        if window_index is not None:
+            target = f"{session_name}:{window_index}"
+        else:
+            target = session_name
+
+        return [
+            "ssh",
+            "-p", self.port,
+            "-o", "ControlMaster=auto",
+            "-o", f"ControlPath={self._control_path}",
+            "-o", "ControlPersist=600",
+            "-t",
+            f"{self.user}@{self.host}",
+            "tmux", "attach-session", "-t", target,
+        ]
+
+    def get_new_session_command(self, session_name: str) -> list[str]:
+        """Retorna el comando para crear y adjuntar a una nueva sesión."""
+        # Asegurar que el directorio del socket exista
+        socket_dir = Path(self._control_path).parent
+        socket_dir.mkdir(parents=True, exist_ok=True)
+
+        return [
+            "ssh",
+            "-p", self.port,
+            "-o", "ControlMaster=auto",
+            "-o", f"ControlPath={self._control_path}",
+            "-o", "ControlPersist=600",
+            "-t",
+            f"{self.user}@{self.host}",
+            "tmux", "new-session", "-A", "-s", session_name,
+        ]
+
+    def rename_session(self, old_name: str, new_name: str) -> bool:
+        """Renombra una sesión remota."""
+        if not new_name:
+            return False
+        result = self._run_remote(["rename-session", "-t", old_name, new_name])
+        return result.returncode == 0
+
+    def kill_session(self, name: str) -> bool:
+        """Elimina una sesión remota."""
+        result = self._run_remote(["kill-session", "-t", name])
+        return result.returncode == 0
+
+    def create_window(self, session_name: str, window_name: str | None = None) -> bool:
+        """Crea una nueva ventana en una sesión remota."""
+        cmd = ["new-window", "-t", session_name]
+        if window_name:
+            cmd.extend(["-n", window_name])
+        result = self._run_remote(cmd)
+        return result.returncode == 0
+
+    def close_connection(self, force: bool = False):
+        """Cierra la conexión SSH ControlMaster."""
+        socket_path = Path(self._control_path)
+        if not socket_path.exists():
+            return
+
+        # Intentar cierre graceful primero
+        cmd = [
+            "ssh", "-O", "exit",
+            "-o", f"ControlPath={self._control_path}",
+            f"{self.user}@{self.host}",
+        ]
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=2)
+        except Exception:
+            pass
+
+        # Si force=True y el socket aún existe, eliminarlo directamente
+        if force and socket_path.exists():
+            try:
+                socket_path.unlink()
+            except Exception:
+                pass
