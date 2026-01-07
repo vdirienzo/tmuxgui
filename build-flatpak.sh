@@ -26,8 +26,8 @@ if ! flatpak remote-list | grep -q flathub; then
 fi
 
 # Install GNOME SDK if needed
-echo "Checking GNOME Platform/SDK 46..."
-flatpak install -y flathub org.gnome.Platform//46 org.gnome.Sdk//46 2>/dev/null || true
+echo "Checking GNOME Platform/SDK 48..."
+flatpak install -y flathub org.gnome.Platform//48 org.gnome.Sdk//48 2>/dev/null || true
 
 # Build
 echo ""

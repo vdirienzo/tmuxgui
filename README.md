@@ -197,7 +197,7 @@ sudo dnf install flatpak flatpak-builder  # Fedora
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
 # Install GNOME SDK
-flatpak install flathub org.gnome.Platform//46 org.gnome.Sdk//46
+flatpak install flathub org.gnome.Platform//48 org.gnome.Sdk//48
 
 # Clone and build
 git clone https://github.com/vdirienzo/gnome-tmux.git
