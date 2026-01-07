@@ -49,7 +49,20 @@
 
 ## Screenshots
 
-*Coming soon*
+<p align="center">
+  <img src="screenshots/01.png" alt="Session management" width="800">
+  <br><em>Session and window management with expandable tree view</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/02.png" alt="Integrated terminal" width="800">
+  <br><em>Integrated terminal attached to tmux session</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/03.png" alt="File browser" width="800">
+  <br><em>Built-in file browser with drag and drop support</em>
+</p>
 
 ## Requirements
 
@@ -142,6 +155,50 @@ cd gnome-tmux
 | `Ctrl+B "` | Split pane vertically |
 
 *Standard tmux keybindings work in the embedded terminal*
+
+### Recommended tmux Configuration
+
+For the best experience with gnome-tmux, add this configuration to your `~/.tmux.conf`:
+
+```bash
+# Enable full mouse support (select panes, resize, scroll)
+set -g mouse on
+
+# Change prefix from Ctrl+b to Ctrl+a (more comfortable, like screen)
+set -g prefix C-a
+unbind C-b
+bind C-a send-prefix
+
+# Intuitive shortcuts for splitting windows
+bind v split-window -h  # Split vertically with v
+bind h split-window -v  # Split horizontally with h
+unbind '"'
+unbind %
+
+# Quick reload configuration (without restarting tmux)
+bind r source-file ~/.tmux.conf \; display "Configuration reloaded!"
+
+# 256 color support (improves themes in Vim/Neovim)
+set -g default-terminal "screen-256color"
+
+# Vim-style keys in copy mode
+setw -g mode-keys vi
+
+# Reduce Escape delay (useful with Vim/Neovim)
+set -sg escape-time 0
+
+# Navigate panes with Alt + arrows (no prefix needed)
+bind -n M-Left select-pane -L
+bind -n M-Right select-pane -R
+bind -n M-Up select-pane -U
+bind -n M-Down select-pane -D
+
+# Better looking status bar
+set -g status-bg blue
+set -g status-fg white
+```
+
+After saving, reload with `tmux source-file ~/.tmux.conf` or restart tmux.
 
 ### Drag and Drop
 
