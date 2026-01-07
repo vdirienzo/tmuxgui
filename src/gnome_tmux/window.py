@@ -11,6 +11,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, GLib, GObject, Gtk
 
+from .themes import theme_manager
 from .tmux_client import TmuxClient
 from .widgets import FileTree, SessionRow, TerminalView
 
@@ -31,6 +32,9 @@ class MainWindow(Adw.ApplicationWindow):
 
         self.set_title("TmuxGUI")
         self.set_default_size(1000, 700)
+
+        # Aplicar tema guardado
+        theme_manager.apply_saved_theme()
 
         # Layout principal
         self._setup_ui()
@@ -74,6 +78,13 @@ class MainWindow(Adw.ApplicationWindow):
         help_button.set_tooltip_text("Help & About")
         help_button.connect("clicked", self._on_help_clicked)
         header.pack_end(help_button)
+
+        # Botón de temas (derecha, antes de ayuda)
+        theme_button = Gtk.Button()
+        theme_button.set_icon_name("applications-graphics-symbolic")
+        theme_button.set_tooltip_text("Change theme")
+        theme_button.connect("clicked", self._on_theme_clicked)
+        header.pack_end(theme_button)
 
         # CSS personalizado
         css_provider = Gtk.CssProvider()
@@ -932,6 +943,69 @@ class MainWindow(Adw.ApplicationWindow):
         toolbar_view.set_content(scrolled)
 
         dialog.present()
+
+    def _on_theme_clicked(self, button: Gtk.Button):
+        """Muestra el diálogo de selección de tema."""
+        dialog = Adw.Window(transient_for=self)
+        dialog.set_title("Theme")
+        dialog.set_default_size(350, 450)
+        dialog.set_modal(True)
+
+        # Toolbar view
+        toolbar_view = Adw.ToolbarView()
+        dialog.set_content(toolbar_view)
+
+        # Header
+        header = Adw.HeaderBar()
+        header.set_show_end_title_buttons(True)
+        toolbar_view.add_top_bar(header)
+
+        # Scroll
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+
+        # Contenido
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        # Grupo de temas
+        themes_group = Adw.PreferencesGroup(title="Select Theme")
+
+        current_theme = theme_manager.get_current_theme()
+        themes = theme_manager.get_available_themes()
+
+        # Crear un grupo de check buttons
+        first_check = None
+        for theme_id, theme_data in themes.items():
+            row = Adw.ActionRow(title=theme_data["name"])
+            row.set_activatable(True)
+
+            check = Gtk.CheckButton()
+            check.set_active(theme_id == current_theme)
+            if first_check is None:
+                first_check = check
+            else:
+                check.set_group(first_check)
+
+            check.connect("toggled", self._on_theme_toggled, theme_id)
+            row.add_prefix(check)
+            row.set_activatable_widget(check)
+            themes_group.add(row)
+
+        content.append(themes_group)
+
+        scrolled.set_child(content)
+        toolbar_view.set_content(scrolled)
+
+        dialog.present()
+
+    def _on_theme_toggled(self, check: Gtk.CheckButton, theme_id: str):
+        """Aplica el tema seleccionado."""
+        if check.get_active():
+            theme_manager.apply_theme(theme_id)
 
     def do_close_request(self) -> bool:
         """Maneja el cierre de la ventana."""
