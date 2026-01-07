@@ -64,6 +64,17 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.4.0" date="2026-01-07">
+      <description>
+        <p>New features:</p>
+        <ul>
+          <li>Remote SSH sessions - connect to remote tmux via SSH</li>
+          <li>Host management - save, edit, delete SSH connections</li>
+          <li>Drag folders to terminal to paste path</li>
+          <li>Compact action buttons in session rows</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-01-06">
       <description>
         <p>New features:</p>
