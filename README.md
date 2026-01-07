@@ -117,15 +117,18 @@ The integrated file browser provides VS Code-style navigation:
 
 ## Screenshots
 
-<p align="center">
-  <img src="screenshots/01.png" alt="Session management">
-  <br><em>Session and window management with expandable tree view</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/02.png" alt="File browser">
-  <br><em>File browser with search and favorites</em>
-</p>
+<table>
+  <tr>
+    <td><img src="screenshots/01.png" alt="Screenshot 1"></td>
+    <td><img src="screenshots/02.png" alt="Screenshot 2"></td>
+    <td><img src="screenshots/03.png" alt="Screenshot 3"></td>
+  </tr>
+  <tr>
+    <td><img src="screenshots/04.png" alt="Screenshot 4"></td>
+    <td><img src="screenshots/05.png" alt="Screenshot 5"></td>
+    <td><img src="screenshots/06.png" alt="Screenshot 6"></td>
+  </tr>
+</table>
 
 ## Requirements
 
