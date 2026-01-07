@@ -92,12 +92,9 @@
     </release>
   </releases>
 
-  <developer_name>Homero Thompson del Lago del Terror</developer_name>
-
-  <kudos>
-    <kudo>ModernToolkit</kudo>
-    <kudo>HiDpiIcon</kudo>
-  </kudos>
+  <developer id="io.github.vdirienzo">
+    <name>Homero Thompson del Lago del Terror</name>
+  </developer>
 
   <requires>
     <display_length compare="ge">360</display_length>
