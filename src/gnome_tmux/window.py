@@ -1546,7 +1546,7 @@ class MainWindow(Adw.ApplicationWindow):
             ("Remote Sessions", "Connect to remote hosts via SSH"),
             ("Integrated Terminal", "VTE terminal with full tmux support"),
             ("File Browser", "Navigate filesystem with CRUD operations"),
-            ("Drag & Drop", "Drag files/folders to terminal, reorder sections"),
+            ("Drag and Drop", "Drag files/folders to terminal, reorder sections"),
         ]
 
         for title_text, desc in features:
