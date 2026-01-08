@@ -1,7 +1,7 @@
 # tmuxgui
 
 <p align="center">
-  <img src="data/icons/hicolor/512x512/apps/com.github.tmuxgui.png" alt="tmuxgui logo" width="128">
+  <img src="data/icons/hicolor/512x512/apps/io.github.vdirienzo.TmuxGUI.png" alt="tmuxgui logo" width="128">
 </p>
 
 <p align="center">
