@@ -561,6 +561,31 @@ class RemoteTmuxClient:
         result = self._run_ssh_command(f"test -d {path!r} && echo yes || echo no")
         return result.returncode == 0 and "yes" in result.stdout
 
+    def rename_file(self, old_path: str, new_path: str) -> bool:
+        """Renombra un archivo o directorio en el servidor remoto."""
+        if not self.is_connected():
+            return False
+        cmd = f"mv {old_path!r} {new_path!r}"
+        result = self._run_ssh_command(cmd)
+        return result.returncode == 0
+
+    def delete_file(self, path: str) -> bool:
+        """Elimina un archivo o directorio en el servidor remoto."""
+        if not self.is_connected():
+            return False
+        # Usar rm -rf para directorios, rm para archivos
+        cmd = f"rm -rf {path!r}"
+        result = self._run_ssh_command(cmd)
+        return result.returncode == 0
+
+    def create_directory(self, path: str) -> bool:
+        """Crea un directorio en el servidor remoto."""
+        if not self.is_connected():
+            return False
+        cmd = f"mkdir -p {path!r}"
+        result = self._run_ssh_command(cmd)
+        return result.returncode == 0
+
     def download_file(self, remote_path: str, local_path: str) -> bool:
         """
         Descarga un archivo del servidor remoto usando scp.

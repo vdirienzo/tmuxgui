@@ -565,6 +565,9 @@ class FileTree(Gtk.Box):
             row.connect("toggle-expand", self._on_remote_toggle_expand)
             row.connect("copy-path-requested", self._on_remote_copy_path_requested)
             row.connect("download-requested", self._on_download_requested)
+            row.connect("rename-requested", self._on_remote_rename_requested)
+            row.connect("delete-requested", self._on_remote_delete_requested)
+            row.connect("create-folder-requested", self._on_remote_create_folder_requested)
             self._list_box.append(row)
 
             # Si es directorio expandido, cargar hijos
@@ -626,6 +629,108 @@ class FileTree(Gtk.Box):
         """Callback cuando termina la descarga."""
         self.emit("download-complete", filename, success)
         return False
+
+    def _on_remote_rename_requested(self, row, path: str):
+        """Muestra diálogo para renombrar archivo/carpeta remoto."""
+        name = os.path.basename(path)
+        root = self.get_root()
+
+        dialog = Adw.MessageDialog(
+            heading="Rename",
+            body=f"Enter new name for '{name}':",
+        )
+
+        if root:
+            dialog.set_transient_for(root)
+
+        entry = Gtk.Entry()
+        entry.set_text(name)
+        entry.connect("activate", lambda e: dialog.response("rename"))
+        dialog.set_extra_child(entry)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("rename", "Rename")
+        dialog.set_response_appearance("rename", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("rename")
+
+        def on_response(dialog, response):
+            if response == "rename":
+                new_name = entry.get_text().strip()
+                if new_name and new_name != name:
+                    parent = os.path.dirname(path)
+                    new_path = f"{parent}/{new_name}"
+                    if self._remote_client and self._remote_client.rename_file(path, new_path):
+                        self._load_tree()
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def _on_remote_delete_requested(self, row, path: str):
+        """Muestra diálogo de confirmación para eliminar archivo/carpeta remoto."""
+        name = os.path.basename(path)
+        root = self.get_root()
+
+        is_dir = self._remote_client.is_dir(path) if self._remote_client else False
+        if is_dir:
+            body = "This will permanently delete this folder and all its contents on the remote server."
+        else:
+            body = "This will permanently delete this file on the remote server."
+
+        dialog = Adw.MessageDialog(
+            heading=f"Delete {name}?",
+            body=body,
+        )
+
+        if root:
+            dialog.set_transient_for(root)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("delete", "Delete")
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+
+        def on_response(dialog, response):
+            if response == "delete":
+                if self._remote_client and self._remote_client.delete_file(path):
+                    self._load_tree()
+
+        dialog.connect("response", on_response)
+        dialog.present()
+
+    def _on_remote_create_folder_requested(self, row, path: str):
+        """Muestra diálogo para crear una nueva carpeta remota."""
+        root = self.get_root()
+
+        dialog = Adw.MessageDialog(
+            heading="New Folder",
+            body="Enter name for the new folder:",
+        )
+
+        if root:
+            dialog.set_transient_for(root)
+
+        entry = Gtk.Entry()
+        entry.set_text("New Folder")
+        entry.select_region(0, -1)
+        entry.connect("activate", lambda e: dialog.response("create"))
+        dialog.set_extra_child(entry)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("create", "Create")
+        dialog.set_response_appearance("create", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("create")
+
+        def on_response(dialog, response):
+            if response == "create":
+                folder_name = entry.get_text().strip()
+                if folder_name:
+                    new_path = f"{path.rstrip('/')}/{folder_name}"
+                    if self._remote_client and self._remote_client.create_directory(new_path):
+                        # Expandir el directorio padre para mostrar la nueva carpeta
+                        self._expanded_dirs.add(path)
+                        self._load_tree()
+
+        dialog.connect("response", on_response)
+        dialog.present()
 
     def _create_error_row(self, message: str, depth: int) -> Gtk.ListBoxRow:
         """Crea una fila de error."""
@@ -1455,6 +1560,9 @@ class RemoteFileTreeRow(Gtk.ListBoxRow):
         "toggle-expand": (GObject.SignalFlags.RUN_FIRST, None, (str, bool)),
         "copy-path-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "download-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "rename-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "delete-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "create-folder-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
     }
 
     def __init__(self, path: str, name: str, is_dir: bool, depth: int, expanded: bool = False, is_hidden: bool = False):
@@ -1584,9 +1692,22 @@ class RemoteFileTreeRow(Gtk.ListBoxRow):
             download_section.append("Download", "file.download")
             menu.append_section(None, download_section)
 
+        # Sección Copy Path
         path_section = Gio.Menu()
         path_section.append("Copy Path", "file.copy_path")
         menu.append_section(None, path_section)
+
+        # Sección de creación (solo para directorios)
+        if self.is_directory:
+            create_section = Gio.Menu()
+            create_section.append("New Folder", "file.create_folder")
+            menu.append_section(None, create_section)
+
+        # Sección Rename/Delete
+        edit_section = Gio.Menu()
+        edit_section.append("Rename", "file.rename")
+        edit_section.append("Delete", "file.delete")
+        menu.append_section(None, edit_section)
 
         action_group = Gio.SimpleActionGroup()
 
@@ -1597,6 +1718,18 @@ class RemoteFileTreeRow(Gtk.ListBoxRow):
         download_action = Gio.SimpleAction.new("download", None)
         download_action.connect("activate", lambda a, p: self.emit("download-requested", self.path))
         action_group.add_action(download_action)
+
+        rename_action = Gio.SimpleAction.new("rename", None)
+        rename_action.connect("activate", lambda a, p: self.emit("rename-requested", self.path))
+        action_group.add_action(rename_action)
+
+        delete_action = Gio.SimpleAction.new("delete", None)
+        delete_action.connect("activate", lambda a, p: self.emit("delete-requested", self.path))
+        action_group.add_action(delete_action)
+
+        create_folder_action = Gio.SimpleAction.new("create_folder", None)
+        create_folder_action.connect("activate", lambda a, p: self.emit("create-folder-requested", self.path))
+        action_group.add_action(create_folder_action)
 
         popover = Gtk.PopoverMenu.new_from_model(menu)
         popover.set_parent(self)
