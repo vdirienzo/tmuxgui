@@ -19,19 +19,22 @@ from gi.repository import Adw, Gdk, Gio, Gtk
 
 from .window import MainWindow
 
+# Application ID (debe coincidir con el .desktop y los iconos)
+APP_ID = "io.github.vdirienzo.TmuxGUI"
+
 # Ruta al icono
 ICON_PATH = (
     Path(__file__).parent.parent.parent
-    / "data" / "icons" / "hicolor" / "512x512" / "apps" / "com.github.gnome-tmux.png"
+    / "data" / "icons" / "hicolor" / "512x512" / "apps" / f"{APP_ID}.png"
 )
 
 
 class GnomeTmuxApplication(Adw.Application):
-    """Aplicación principal de gnome-tmux."""
+    """Aplicación principal de TmuxGUI."""
 
     def __init__(self):
         super().__init__(
-            application_id="com.github.gnome-tmux",
+            application_id=APP_ID,
             flags=Gio.ApplicationFlags.FLAGS_NONE,
         )
 
@@ -40,7 +43,7 @@ class GnomeTmuxApplication(Adw.Application):
         Adw.Application.do_startup(self)
         # Cargar icono desde archivo
         if ICON_PATH.exists():
-            Gtk.Window.set_default_icon_name("com.github.gnome-tmux")
+            Gtk.Window.set_default_icon_name(APP_ID)
             # Agregar al theme para que lo encuentre
             display = Gdk.Display.get_default()
             if display:

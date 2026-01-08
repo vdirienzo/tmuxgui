@@ -1,6 +1,6 @@
 [project]
-name = "gnome-tmux"
-version = "0.1.0"
+name = "tmuxgui"
+version = "0.4.2"
 description = "GNOME native frontend for tmux"
 authors = [
     { name = "Homero Thompson del Lago del Terror" }

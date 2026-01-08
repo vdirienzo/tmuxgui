@@ -29,12 +29,12 @@ mkdir -p ~/.local/share/icons/hicolor/64x64/apps
 mkdir -p ~/.local/share/icons/hicolor/128x128/apps
 mkdir -p ~/.local/share/icons/hicolor/512x512/apps
 
-# Copiar iconos
+# Copiar iconos con permisos correctos
 echo "Instalando iconos..."
-cp "$SCRIPT_DIR/data/icons/hicolor/48x48/apps/$APP_ID.png" ~/.local/share/icons/hicolor/48x48/apps/
-cp "$SCRIPT_DIR/data/icons/hicolor/64x64/apps/$APP_ID.png" ~/.local/share/icons/hicolor/64x64/apps/
-cp "$SCRIPT_DIR/data/icons/hicolor/128x128/apps/$APP_ID.png" ~/.local/share/icons/hicolor/128x128/apps/
-cp "$SCRIPT_DIR/data/icons/hicolor/512x512/apps/$APP_ID.png" ~/.local/share/icons/hicolor/512x512/apps/
+install -Dm644 "$SCRIPT_DIR/data/icons/hicolor/48x48/apps/$APP_ID.png" ~/.local/share/icons/hicolor/48x48/apps/$APP_ID.png
+install -Dm644 "$SCRIPT_DIR/data/icons/hicolor/64x64/apps/$APP_ID.png" ~/.local/share/icons/hicolor/64x64/apps/$APP_ID.png
+install -Dm644 "$SCRIPT_DIR/data/icons/hicolor/128x128/apps/$APP_ID.png" ~/.local/share/icons/hicolor/128x128/apps/$APP_ID.png
+install -Dm644 "$SCRIPT_DIR/data/icons/hicolor/512x512/apps/$APP_ID.png" ~/.local/share/icons/hicolor/512x512/apps/$APP_ID.png
 
 # Crear .desktop con path correcto
 echo "Creando entrada de escritorio..."
@@ -49,6 +49,7 @@ Type=Application
 Categories=System;TerminalEmulator;Utility;
 Keywords=terminal;tmux;session;multiplexer;
 StartupNotify=true
+StartupWMClass=$APP_ID
 EOF
 
 # Actualizar cache de iconos
