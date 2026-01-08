@@ -8,6 +8,12 @@ authors = [
 requires-python = ">=3.12"
 dependencies = []
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+]
+
 # Note: PyGObject, GTK4, Libadwaita and VTE must be installed via system packages:
 # apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-vte-3.91
 
@@ -28,3 +34,9 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 ignore = ["E402"]  # Necesario para gi.require_version antes de imports
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
