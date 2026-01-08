@@ -48,6 +48,7 @@
 | **Persistent storage** | Hosts saved to `~/.config/tmuxgui/remote_hosts.json` |
 | **Session operations** | Create, rename, attach to remote sessions |
 | **ControlMaster** | Persistent SSH connections for performance |
+| **Remote file browser** | Browse files on remote server when connected |
 
 ### Integrated Terminal
 
@@ -104,6 +105,22 @@ The integrated file browser provides VS Code-style navigation:
 |---------|-------------|
 | **Drag to terminal** | Drag any file or folder to paste its path in the terminal |
 | **Search results** | Navigate to file location button |
+
+#### Remote File Browser
+When connected to a remote SSH session, the file browser automatically switches to remote mode:
+
+| Feature | Description |
+|---------|-------------|
+| **Auto-switch** | File browser shows remote files when SSH connected |
+| **Browse directories** | Navigate remote filesystem with expand/collapse |
+| **Copy/Paste** | Copy and paste files/folders on remote server |
+| **Download** | Download remote files to ~/Downloads (double-click or menu) |
+| **Rename** | Rename remote files and folders |
+| **Delete** | Delete remote files and folders |
+| **New Folder** | Create new directories on remote server |
+| **Copy Path** | Copy full remote path (user@host:path format) |
+| **Search** | Search remote files by name or content |
+| **Hidden files** | Shows hidden files with dimmed style |
 
 ### Themes
 
@@ -356,6 +373,10 @@ tmuxgui/
 │           ├── remote_session_row.py # Remote session widgets
 │           ├── file_tree.py         # File browser widget
 │           └── terminal_view.py     # VTE terminal wrapper
+├── tests/
+│   ├── conftest.py              # Pytest fixtures
+│   ├── test_remote_tmux_client.py  # RemoteTmuxClient tests (30 tests)
+│   └── test_file_tree_logic.py     # FileTree logic tests (25 tests)
 ├── data/
 │   └── icons/                   # Application icons
 ├── run.py                       # Development launcher
@@ -413,6 +434,12 @@ uvx ruff check src/
 # Auto-fix issues
 uvx ruff check --fix src/
 
+# Run unit tests
+PYTHONPATH=. uvx pytest tests/ -v
+
+# Run tests with coverage
+PYTHONPATH=. uvx pytest tests/ -v --cov=src
+
 # Security scan with semgrep
 semgrep scan src/
 ```
@@ -443,6 +470,33 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` Maintenance tasks
 
 ## Changelog
+
+### [0.4.1] - 2026-01-07
+
+#### Added
+
+**Remote File Browser**
+- Full file operations on remote servers (same as local):
+  - Copy files and folders
+  - Paste with auto-rename on conflicts
+  - Rename files and folders
+  - Delete files and folders
+  - Create new folders
+  - Download files to ~/Downloads
+- Context menu with all operations
+- Remote clipboard for copy/paste operations
+- Search remote files by name or content
+
+**Unit Tests**
+- Comprehensive test suite with 55 tests
+- Tests for RemoteTmuxClient (30 tests)
+- Tests for FileTree logic (25 tests)
+- Pytest fixtures for mocking SSH operations
+- Coverage configuration in pyproject.toml
+
+#### Fixed
+- Remote session row button spacing now matches local sessions
+- Buttons grouped with linked CSS class for consistent UI
 
 ### [0.4.0] - 2026-01-07
 
