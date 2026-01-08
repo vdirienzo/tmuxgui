@@ -586,6 +586,15 @@ class RemoteTmuxClient:
         result = self._run_ssh_command(cmd)
         return result.returncode == 0
 
+    def copy_file(self, src_path: str, dst_path: str) -> bool:
+        """Copia un archivo o directorio en el servidor remoto."""
+        if not self.is_connected():
+            return False
+        # Usar cp -r para soportar directorios
+        cmd = f"cp -r {src_path!r} {dst_path!r}"
+        result = self._run_ssh_command(cmd)
+        return result.returncode == 0
+
     def download_file(self, remote_path: str, local_path: str) -> bool:
         """
         Descarga un archivo del servidor remoto usando scp.

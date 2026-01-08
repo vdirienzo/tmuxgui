@@ -25,7 +25,8 @@ class FileTree(Gtk.Box):
     __gtype_name__ = "FileTree"
 
     __gsignals__ = {
-        "download-complete": (GObject.SignalFlags.RUN_FIRST, None, (str, bool)),  # (filename, success)
+        # Signal: (filename, success)
+        "download-complete": (GObject.SignalFlags.RUN_FIRST, None, (str, bool)),
     }
 
     # Archivo de configuración para favoritos
@@ -43,6 +44,7 @@ class FileTree(Gtk.Box):
         self._remote_client = None  # RemoteTmuxClient when in remote mode
         self._remote_root: str | None = None  # Remote root path
         self._is_remote = False
+        self._remote_clipboard_path: str | None = None  # Path copiado en remoto
 
         self._setup_ui()
         self._load_tree()
@@ -568,6 +570,8 @@ class FileTree(Gtk.Box):
             row.connect("rename-requested", self._on_remote_rename_requested)
             row.connect("delete-requested", self._on_remote_delete_requested)
             row.connect("create-folder-requested", self._on_remote_create_folder_requested)
+            row.connect("copy-requested", self._on_remote_copy_requested)
+            row.connect("paste-requested", self._on_remote_paste_requested)
             self._list_box.append(row)
 
             # Si es directorio expandido, cargar hijos
@@ -672,7 +676,8 @@ class FileTree(Gtk.Box):
 
         is_dir = self._remote_client.is_dir(path) if self._remote_client else False
         if is_dir:
-            body = "This will permanently delete this folder and all its contents on the remote server."
+            body = ("This will permanently delete this folder and all its "
+                    "contents on the remote server.")
         else:
             body = "This will permanently delete this file on the remote server."
 
@@ -731,6 +736,44 @@ class FileTree(Gtk.Box):
 
         dialog.connect("response", on_response)
         dialog.present()
+
+    def _on_remote_copy_requested(self, row, path: str):
+        """Copia un archivo/carpeta remoto al clipboard interno."""
+        self._remote_clipboard_path = path
+
+    def _on_remote_paste_requested(self, row, path: str):
+        """Pega el archivo/carpeta copiado en el destino remoto."""
+        if not self._remote_clipboard_path or not self._remote_client:
+            return
+
+        source = self._remote_clipboard_path
+        source_name = os.path.basename(source)
+
+        # Destino es el directorio donde pegar
+        if self._remote_client.is_dir(path):
+            destination = path
+        else:
+            destination = os.path.dirname(path)
+
+        target = f"{destination.rstrip('/')}/{source_name}"
+
+        # Si ya existe, agregar sufijo
+        counter = 1
+        original_name = source_name
+        while self._remote_client.file_exists(target):
+            # Separar nombre y extensión
+            if "." in original_name and not original_name.startswith("."):
+                name_parts = original_name.rsplit(".", 1)
+                new_name = f"{name_parts[0]}_{counter}.{name_parts[1]}"
+            else:
+                new_name = f"{original_name}_{counter}"
+            target = f"{destination.rstrip('/')}/{new_name}"
+            counter += 1
+
+        if self._remote_client.copy_file(source, target):
+            # Expandir el directorio destino para mostrar el archivo copiado
+            self._expanded_dirs.add(destination)
+            self._load_tree()
 
     def _create_error_row(self, message: str, depth: int) -> Gtk.ListBoxRow:
         """Crea una fila de error."""
@@ -1563,9 +1606,14 @@ class RemoteFileTreeRow(Gtk.ListBoxRow):
         "rename-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "delete-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
         "create-folder-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "copy-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "paste-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
     }
 
-    def __init__(self, path: str, name: str, is_dir: bool, depth: int, expanded: bool = False, is_hidden: bool = False):
+    def __init__(
+        self, path: str, name: str, is_dir: bool, depth: int,
+        expanded: bool = False, is_hidden: bool = False
+    ):
         super().__init__()
 
         self.path = path
@@ -1692,6 +1740,12 @@ class RemoteFileTreeRow(Gtk.ListBoxRow):
             download_section.append("Download", "file.download")
             menu.append_section(None, download_section)
 
+        # Sección Copy/Paste
+        copy_paste_section = Gio.Menu()
+        copy_paste_section.append("Copy", "file.copy")
+        copy_paste_section.append("Paste", "file.paste")
+        menu.append_section(None, copy_paste_section)
+
         # Sección Copy Path
         path_section = Gio.Menu()
         path_section.append("Copy Path", "file.copy_path")
@@ -1711,24 +1765,46 @@ class RemoteFileTreeRow(Gtk.ListBoxRow):
 
         action_group = Gio.SimpleActionGroup()
 
+        copy_action = Gio.SimpleAction.new("copy", None)
+        copy_action.connect(
+            "activate", lambda a, p: self.emit("copy-requested", self.path)
+        )
+        action_group.add_action(copy_action)
+
+        paste_action = Gio.SimpleAction.new("paste", None)
+        paste_action.connect(
+            "activate", lambda a, p: self.emit("paste-requested", self.path)
+        )
+        action_group.add_action(paste_action)
+
         copy_path_action = Gio.SimpleAction.new("copy_path", None)
-        copy_path_action.connect("activate", lambda a, p: self.emit("copy-path-requested", self.path))
+        copy_path_action.connect(
+            "activate", lambda a, p: self.emit("copy-path-requested", self.path)
+        )
         action_group.add_action(copy_path_action)
 
         download_action = Gio.SimpleAction.new("download", None)
-        download_action.connect("activate", lambda a, p: self.emit("download-requested", self.path))
+        download_action.connect(
+            "activate", lambda a, p: self.emit("download-requested", self.path)
+        )
         action_group.add_action(download_action)
 
         rename_action = Gio.SimpleAction.new("rename", None)
-        rename_action.connect("activate", lambda a, p: self.emit("rename-requested", self.path))
+        rename_action.connect(
+            "activate", lambda a, p: self.emit("rename-requested", self.path)
+        )
         action_group.add_action(rename_action)
 
         delete_action = Gio.SimpleAction.new("delete", None)
-        delete_action.connect("activate", lambda a, p: self.emit("delete-requested", self.path))
+        delete_action.connect(
+            "activate", lambda a, p: self.emit("delete-requested", self.path)
+        )
         action_group.add_action(delete_action)
 
         create_folder_action = Gio.SimpleAction.new("create_folder", None)
-        create_folder_action.connect("activate", lambda a, p: self.emit("create-folder-requested", self.path))
+        create_folder_action.connect(
+            "activate", lambda a, p: self.emit("create-folder-requested", self.path)
+        )
         action_group.add_action(create_folder_action)
 
         popover = Gtk.PopoverMenu.new_from_model(menu)
