@@ -265,6 +265,9 @@ class MainWindow(Adw.ApplicationWindow):
         self.file_tree_widget = FileTree()
         self.file_tree_widget.set_vexpand(True)
 
+        # Conectar señal de descarga completada
+        self.file_tree_widget.connect("download-complete", self._on_file_download_complete)
+
         # Drag source en el drag handle del FileTree
         drag_source = Gtk.DragSource()
         drag_source.set_actions(Gdk.DragAction.MOVE)
@@ -960,6 +963,11 @@ class MainWindow(Adw.ApplicationWindow):
         command = self.tmux.get_attach_command(name, window_index)
         self.terminal_view.attach_session(name, command)
         self.terminal_view.grab_focus()
+
+        # Cambiar file tree a modo local
+        if hasattr(self, 'file_tree_widget') and self.file_tree_widget.is_remote:
+            self.file_tree_widget.set_local_mode()
+
         return False
 
     def _get_remote_client(self, host: str, user: str, port: str) -> RemoteTmuxClient:
@@ -979,6 +987,10 @@ class MainWindow(Adw.ApplicationWindow):
         # Ejecutar en el terminal (maneja password prompts)
         self.terminal_view.attach_session(f"{name}@{host}", command)
         self.terminal_view.grab_focus()
+
+        # Cambiar file tree a modo remoto
+        if hasattr(self, 'file_tree_widget'):
+            self.file_tree_widget.set_remote_mode(client)
 
         # Guardar host para uso futuro
         remote_host = RemoteHost(
@@ -1047,6 +1059,10 @@ class MainWindow(Adw.ApplicationWindow):
 
         self.terminal_view.attach_session(display_name, command)
         self.terminal_view.grab_focus()
+
+        # Cambiar file tree a modo remoto
+        if hasattr(self, 'file_tree_widget'):
+            self.file_tree_widget.set_remote_mode(client)
 
         # Refresh para actualizar lista
         self._schedule_remote_refresh_until_sessions_found(host, user, port)
@@ -1361,6 +1377,13 @@ class MainWindow(Adw.ApplicationWindow):
         toast = Adw.Toast(title=message)
         toast.set_timeout(3)
         self.toast_overlay.add_toast(toast)
+
+    def _on_file_download_complete(self, widget, filename: str, success: bool):
+        """Callback cuando se completa una descarga de archivo remoto."""
+        if success:
+            self._show_toast(f"Downloaded: {filename}")
+        else:
+            self._show_toast(f"Failed to download: {filename}")
 
     def _on_sidebar_toggled(self, button: Gtk.ToggleButton):
         """Maneja el toggle del sidebar con animación."""

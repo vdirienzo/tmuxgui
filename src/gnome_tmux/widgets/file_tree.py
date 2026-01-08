@@ -24,6 +24,10 @@ class FileTree(Gtk.Box):
 
     __gtype_name__ = "FileTree"
 
+    __gsignals__ = {
+        "download-complete": (GObject.SignalFlags.RUN_FIRST, None, (str, bool)),  # (filename, success)
+    }
+
     # Archivo de configuración para favoritos
     _FAVORITES_FILE = Path.home() / ".config" / "gnome-tmux" / "favorites.json"
 
@@ -35,8 +39,121 @@ class FileTree(Gtk.Box):
         self._clipboard_path: str | None = None  # Path copiado al clipboard
         self._favorites: list[str] = self._load_favorites()
 
+        # Remote mode support
+        self._remote_client = None  # RemoteTmuxClient when in remote mode
+        self._remote_root: str | None = None  # Remote root path
+        self._is_remote = False
+
         self._setup_ui()
         self._load_tree()
+
+    def set_remote_mode(self, client, root_path: str | None = None):
+        """Cambia a modo remoto usando el cliente SSH proporcionado."""
+        self._remote_client = client
+        self._is_remote = True
+        self._expanded_dirs.clear()
+        self._remote_root = root_path  # Puede ser None inicialmente
+        self._remote_retry_count = 0
+
+
+        # Intentar cargar, si falla programar reintentos
+        self._try_load_remote_tree()
+
+    def _try_load_remote_tree(self):
+        """Intenta cargar el árbol remoto, reintentando si la conexión no está lista."""
+        from gi.repository import GLib
+
+        if not self._remote_client:
+            return
+
+        # Verificar si la conexión está lista
+        is_conn = self._remote_client.is_connected()
+
+        if not is_conn:
+            self._remote_retry_count += 1
+            if self._remote_retry_count <= 120:  # Máximo 120 intentos (60 segundos)
+                # Mostrar mensaje de espera
+                self._show_connecting_message()
+                # Reintentar en 500ms
+                GLib.timeout_add(500, self._retry_load_remote)
+                return
+            else:
+                # Timeout - mostrar error
+                self._load_tree()
+                return
+
+        # Conexión lista - obtener home si no tenemos root
+        if not self._remote_root:
+            self._remote_root = self._remote_client.get_home_dir()
+            if not self._remote_root:
+                self._remote_root = "/"
+
+        self._load_tree()
+
+    def _retry_load_remote(self) -> bool:
+        """Callback para reintentar carga remota."""
+        if self._is_remote and self._remote_client:
+            self._try_load_remote_tree()
+        return False  # No repetir el timeout
+
+    def _show_connecting_message(self):
+        """Muestra mensaje de conexión en progreso."""
+        if self._remote_client:
+            host_label = f"{self._remote_client.user}@{self._remote_client.host}"
+            self._path_label.set_text(f"[{host_label}] Connecting...")
+            self._path_label.set_tooltip_text("Waiting for SSH connection...")
+
+        self._clear_list_box()
+        row = self._create_info_row("Waiting for SSH connection...", 0)
+        self._list_box.append(row)
+
+    def _create_info_row(self, message: str, depth: int) -> Gtk.ListBoxRow:
+        """Crea una fila informativa."""
+        row = Gtk.ListBoxRow()
+        row.set_selectable(False)
+
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        box.set_margin_start(4 + depth * 16)
+        box.set_margin_end(4)
+        box.set_margin_top(8)
+        box.set_margin_bottom(8)
+
+        spinner = Gtk.Spinner()
+        spinner.start()
+        box.append(spinner)
+
+        label = Gtk.Label(label=message)
+        label.add_css_class("dim-label")
+        box.append(label)
+
+        row.set_child(box)
+        return row
+
+    def set_local_mode(self, root_path: str | None = None):
+        """Vuelve al modo local."""
+        self._remote_client = None
+        self._is_remote = False
+        self._remote_root = None
+        self._expanded_dirs.clear()
+
+        if root_path:
+            self._root_path = Path(root_path)
+        else:
+            self._root_path = Path.home()
+
+        self._load_tree()
+
+    @property
+    def is_remote(self) -> bool:
+        """Retorna True si está en modo remoto."""
+        return self._is_remote
+
+    @property
+    def current_root(self) -> str:
+        """Retorna el root actual (local o remoto)."""
+        if self._is_remote:
+            return self._remote_root or "/"
+        return str(self._root_path)
 
     def _setup_ui(self):
         """Configura la interfaz del árbol de archivos."""
@@ -144,8 +261,26 @@ class FileTree(Gtk.Box):
 
     def _load_tree(self):
         """Carga el árbol desde el directorio raíz."""
-        self._path_label.set_text(self._root_path.name or str(self._root_path))
-        self._path_label.set_tooltip_text(str(self._root_path))
+        if self._is_remote:
+            # Modo remoto
+            if not self._remote_root:
+                # No pudimos obtener el root - mostrar error
+                self._path_label.set_text("[Remote] Connection failed")
+                self._path_label.set_tooltip_text("Could not connect to remote host")
+                self._clear_list_box()
+                row = self._create_error_row("SSH connection not established", 0)
+                self._list_box.append(row)
+                return
+
+            root_name = os.path.basename(self._remote_root) or self._remote_root
+            host_label = f"{self._remote_client.user}@{self._remote_client.host}"
+            self._path_label.set_text(f"[{host_label}] {root_name}")
+            self._path_label.set_tooltip_text(f"{host_label}:{self._remote_root}")
+        else:
+            # Modo local
+            self._path_label.set_text(self._root_path.name or str(self._root_path))
+            self._path_label.set_tooltip_text(str(self._root_path))
+
         self._update_favorites_menu()  # Actualizar estado del botón favoritos
 
         # Limpiar lista actual
@@ -156,7 +291,10 @@ class FileTree(Gtk.Box):
             self._show_search_results()
         else:
             # Cargar recursivamente
-            self._load_directory_recursive(self._root_path, 0)
+            if self._is_remote:
+                self._load_remote_directory_recursive(self._remote_root, 0)
+            else:
+                self._load_directory_recursive(self._root_path, 0)
 
     def _clear_list_box(self):
         """Limpia todas las filas del list box."""
@@ -226,17 +364,33 @@ class FileTree(Gtk.Box):
         """Ejecuta la búsqueda según el modo."""
         self._is_searching = True
 
-        if self._search_mode == "name":
-            self._search_results = self._search_by_name(query)
-        elif self._search_mode == "regex":
-            self._search_results = self._search_by_regex(query)
-        elif self._search_mode == "content":
-            self._search_results = self._search_by_content(query)
+        if self._is_remote:
+            # Búsqueda remota
+            self._search_results = self._search_remote(query)
         else:
-            self._search_results = []
+            # Búsqueda local
+            if self._search_mode == "name":
+                self._search_results = self._search_by_name(query)
+            elif self._search_mode == "regex":
+                self._search_results = self._search_by_regex(query)
+            elif self._search_mode == "content":
+                self._search_results = self._search_by_content(query)
+            else:
+                self._search_results = []
 
         self._clear_list_box()
         self._show_search_results()
+
+    def _search_remote(self, query: str) -> list:
+        """Busca archivos en el servidor remoto."""
+        if not self._remote_client:
+            return []
+
+        mode = "name" if self._search_mode in ("name", "regex") else "content"
+        results = self._remote_client.search_files(self._remote_root, query, mode)
+
+        # Convertir a paths remotos (strings en vez de Path objects)
+        return results
 
     def _search_by_name(self, query: str) -> list[Path]:
         """Busca archivos por nombre usando find."""
@@ -304,16 +458,38 @@ class FileTree(Gtk.Box):
             self._list_box.append(row)
             return
 
-        for path in self._search_results:
-            row = SearchResultRow(path, self._root_path)
-            row.connect("copy-requested", self._on_copy_requested)
-            row.connect("paste-requested", self._on_paste_requested)
-            row.connect("rename-requested", self._on_rename_requested)
-            row.connect("delete-requested", self._on_delete_requested)
-            row.connect("copy-path-requested", self._on_copy_path_requested)
-            row.connect("copy-relative-path-requested", self._on_copy_relative_path_requested)
-            row.connect("navigate-requested", self._on_navigate_requested)
-            self._list_box.append(row)
+        if self._is_remote:
+            # Resultados remotos (strings)
+            for path_str in self._search_results:
+                name = os.path.basename(path_str)
+                is_dir = self._remote_client.is_dir(path_str) if self._remote_client else False
+                row = RemoteSearchResultRow(path_str, name, is_dir, self._remote_root)
+                row.connect("navigate-requested", self._on_remote_navigate_requested)
+                row.connect("copy-path-requested", self._on_remote_copy_path_requested)
+                self._list_box.append(row)
+        else:
+            # Resultados locales (Path objects)
+            for path in self._search_results:
+                row = SearchResultRow(path, self._root_path)
+                row.connect("copy-requested", self._on_copy_requested)
+                row.connect("paste-requested", self._on_paste_requested)
+                row.connect("rename-requested", self._on_rename_requested)
+                row.connect("delete-requested", self._on_delete_requested)
+                row.connect("copy-path-requested", self._on_copy_path_requested)
+                row.connect("copy-relative-path-requested", self._on_copy_relative_path_requested)
+                row.connect("navigate-requested", self._on_navigate_requested)
+                self._list_box.append(row)
+
+    def _on_remote_navigate_requested(self, row, path: str):
+        """Navega a la ubicación de un archivo remoto."""
+        parent = os.path.dirname(path)
+        if parent:
+            self._remote_root = parent
+            self._expanded_dirs.clear()
+            self._is_searching = False
+            self._search_results = []
+            self._search_entry.set_text("")
+            self._load_tree()
 
     def _on_navigate_requested(self, row, path: Path):
         """Navega a la ubicación del archivo."""
@@ -360,6 +536,97 @@ class FileTree(Gtk.Box):
             if is_dir and is_expanded:
                 self._load_directory_recursive(entry, depth + 1)
 
+    def _load_remote_directory_recursive(self, path: str, depth: int):
+        """Carga un directorio remoto y sus hijos expandidos recursivamente."""
+        if not self._remote_client:
+            return
+
+        entries = self._remote_client.list_dir(path)
+
+        if entries is None:
+            if depth == 0:
+                row = self._create_error_row("Connection error or permission denied", depth)
+                self._list_box.append(row)
+            return
+
+        if len(entries) == 0 and depth == 0:
+            row = self._create_error_row("Directory is empty", depth)
+            self._list_box.append(row)
+            return
+
+        for entry in entries:
+            name = entry["name"]
+            is_dir = entry["is_dir"]
+            is_hidden = entry.get("is_hidden", False)
+            full_path = f"{path.rstrip('/')}/{name}"
+            is_expanded = full_path in self._expanded_dirs
+
+            row = RemoteFileTreeRow(full_path, name, is_dir, depth, is_expanded, is_hidden)
+            row.connect("toggle-expand", self._on_remote_toggle_expand)
+            row.connect("copy-path-requested", self._on_remote_copy_path_requested)
+            row.connect("download-requested", self._on_download_requested)
+            self._list_box.append(row)
+
+            # Si es directorio expandido, cargar hijos
+            if is_dir and is_expanded:
+                self._load_remote_directory_recursive(full_path, depth + 1)
+
+    def _on_remote_toggle_expand(self, row, path: str, expanded: bool):
+        """Maneja el toggle de expansión de un directorio remoto."""
+        if expanded:
+            self._expanded_dirs.add(path)
+        else:
+            # Remover este y todos los subdirectorios expandidos
+            self._expanded_dirs = {p for p in self._expanded_dirs
+                                   if not p.startswith(path)}
+        self._load_tree()
+
+    def _on_remote_copy_path_requested(self, row, path: str):
+        """Copia el path remoto al clipboard."""
+        if self._remote_client:
+            full_path = f"{self._remote_client.user}@{self._remote_client.host}:{path}"
+            clipboard = Gdk.Display.get_default().get_clipboard()
+            clipboard.set(full_path)
+
+    def _on_download_requested(self, row, remote_path: str):
+        """Descarga un archivo remoto a ~/Downloads."""
+        import threading
+
+        if not self._remote_client:
+            return
+
+        # Obtener nombre del archivo
+        filename = os.path.basename(remote_path)
+
+        # Destino: ~/Downloads
+        downloads_dir = Path.home() / "Downloads"
+        downloads_dir.mkdir(exist_ok=True)
+        local_path = downloads_dir / filename
+
+        # Si ya existe, agregar sufijo
+        counter = 1
+        original_path = local_path
+        while local_path.exists():
+            stem = original_path.stem
+            suffix = original_path.suffix
+            local_path = downloads_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
+
+        # Descargar en thread separado para no bloquear UI
+        def do_download():
+            success = self._remote_client.download_file(remote_path, str(local_path))
+            # Notificar en el hilo principal
+            from gi.repository import GLib
+            GLib.idle_add(self._on_download_finished, filename, success, str(local_path))
+
+        thread = threading.Thread(target=do_download, daemon=True)
+        thread.start()
+
+    def _on_download_finished(self, filename: str, success: bool, local_path: str):
+        """Callback cuando termina la descarga."""
+        self.emit("download-complete", filename, success)
+        return False
+
     def _create_error_row(self, message: str, depth: int) -> Gtk.ListBoxRow:
         """Crea una fila de error."""
         row = Gtk.ListBoxRow()
@@ -391,17 +658,26 @@ class FileTree(Gtk.Box):
 
     def _on_home_clicked(self, button: Gtk.Button):
         """Va al directorio home."""
-        self._root_path = Path.home()
         self._expanded_dirs.clear()
+        if self._is_remote and self._remote_client:
+            self._remote_root = self._remote_client.get_home_dir() or "/"
+        else:
+            self._root_path = Path.home()
         self._load_tree()
 
     def _on_up_clicked(self, button: Gtk.Button):
         """Sube un nivel en el directorio."""
-        parent = self._root_path.parent
-        if parent != self._root_path:
-            self._root_path = parent
-            self._expanded_dirs.clear()
-            self._load_tree()
+        self._expanded_dirs.clear()
+        if self._is_remote:
+            if self._remote_root and self._remote_root != "/":
+                parent = os.path.dirname(self._remote_root.rstrip("/"))
+                self._remote_root = parent or "/"
+                self._load_tree()
+        else:
+            parent = self._root_path.parent
+            if parent != self._root_path:
+                self._root_path = parent
+                self._load_tree()
 
     def _on_collapse_all(self, button: Gtk.Button):
         """Colapsa todos los directorios."""
@@ -1168,3 +1444,252 @@ class SearchResultRow(Gtk.ListBoxRow):
         self._popover.set_pointing_to(rect)
 
         self._popover.popup()
+
+
+class RemoteFileTreeRow(Gtk.ListBoxRow):
+    """Fila que representa un archivo o directorio remoto."""
+
+    __gtype_name__ = "RemoteFileTreeRow"
+
+    __gsignals__ = {
+        "toggle-expand": (GObject.SignalFlags.RUN_FIRST, None, (str, bool)),
+        "copy-path-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "download-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+    }
+
+    def __init__(self, path: str, name: str, is_dir: bool, depth: int, expanded: bool = False, is_hidden: bool = False):
+        super().__init__()
+
+        self.path = path
+        self.name = name
+        self.depth = depth
+        self.is_directory = is_dir
+        self.expanded = expanded
+        self.is_hidden = is_hidden
+
+        self.set_selectable(False)
+
+        # Box horizontal con indentación
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        box.set_margin_start(4 + depth * 16)
+        box.set_margin_end(4)
+        box.set_margin_top(1)
+        box.set_margin_bottom(1)
+
+        if self.is_directory:
+            # Flecha de expansión para directorios
+            self._arrow = Gtk.Image()
+            self._update_arrow()
+            box.append(self._arrow)
+
+            # Icono de carpeta
+            folder_icon = Gtk.Image.new_from_icon_name(
+                "folder-open-symbolic" if expanded else "folder-symbolic"
+            )
+            folder_icon.set_pixel_size(14)
+            box.append(folder_icon)
+
+            # Nombre clickeable
+            label = Gtk.Label(label=name)
+            label.set_ellipsize(3)
+            label.set_hexpand(True)
+            label.set_xalign(0)
+            if is_hidden:
+                label.add_css_class("dim-label")
+            box.append(label)
+
+            # Click para expandir/colapsar
+            click = Gtk.GestureClick()
+            click.connect("released", self._on_clicked)
+            self.add_controller(click)
+        else:
+            # Espaciador para alinear con carpetas
+            spacer = Gtk.Box()
+            spacer.set_size_request(14, -1)
+            box.append(spacer)
+
+            # Icono de archivo
+            file_icon = Gtk.Image.new_from_icon_name("text-x-generic-symbolic")
+            file_icon.set_pixel_size(14)
+            box.append(file_icon)
+
+            # Nombre
+            label = Gtk.Label(label=name)
+            label.set_ellipsize(3)
+            label.set_hexpand(True)
+            label.set_xalign(0)
+            if is_hidden:
+                label.add_css_class("dim-label")
+            box.append(label)
+
+        self.set_child(box)
+
+        # Drag source para arrastrar el path
+        drag_source = Gtk.DragSource()
+        drag_source.set_actions(Gdk.DragAction.COPY)
+        drag_source.connect("prepare", self._on_drag_prepare)
+        drag_source.connect("drag-begin", self._on_drag_begin)
+        self.add_controller(drag_source)
+
+        # Menú contextual con click derecho
+        right_click = Gtk.GestureClick()
+        right_click.set_button(3)
+        right_click.connect("pressed", self._on_right_click)
+        self.add_controller(right_click)
+
+        # Doble click para descargar archivos
+        if not self.is_directory:
+            double_click = Gtk.GestureClick()
+            double_click.set_button(1)
+            double_click.connect("released", self._on_double_click)
+            self.add_controller(double_click)
+
+    def _on_double_click(self, gesture, n_press, x, y):
+        """Descarga el archivo con doble click."""
+        if n_press == 2 and not self.is_directory:
+            self.emit("download-requested", self.path)
+
+    def _update_arrow(self):
+        """Actualiza el icono de la flecha."""
+        if self.expanded:
+            self._arrow.set_from_icon_name("pan-down-symbolic")
+        else:
+            self._arrow.set_from_icon_name("pan-end-symbolic")
+        self._arrow.set_pixel_size(12)
+
+    def _on_clicked(self, gesture, n_press, x, y):
+        """Maneja el click para expandir/colapsar."""
+        if self.is_directory:
+            self.expanded = not self.expanded
+            self.emit("toggle-expand", self.path, self.expanded)
+
+    def _on_drag_prepare(self, source, x, y):
+        """Prepara los datos para el drag."""
+        return Gdk.ContentProvider.new_for_value(self.path)
+
+    def _on_drag_begin(self, source, drag):
+        """Configura el icono del drag."""
+        icon = Gtk.Image.new_from_icon_name(
+            "folder-symbolic" if self.is_directory else "text-x-generic-symbolic"
+        )
+        source.set_icon(icon.get_paintable(), 0, 0)
+
+    def _on_right_click(self, gesture, n_press, x, y):
+        """Muestra el menú contextual."""
+        menu = Gio.Menu()
+
+        # Opción de descarga para archivos
+        if not self.is_directory:
+            download_section = Gio.Menu()
+            download_section.append("Download", "file.download")
+            menu.append_section(None, download_section)
+
+        path_section = Gio.Menu()
+        path_section.append("Copy Path", "file.copy_path")
+        menu.append_section(None, path_section)
+
+        action_group = Gio.SimpleActionGroup()
+
+        copy_path_action = Gio.SimpleAction.new("copy_path", None)
+        copy_path_action.connect("activate", lambda a, p: self.emit("copy-path-requested", self.path))
+        action_group.add_action(copy_path_action)
+
+        download_action = Gio.SimpleAction.new("download", None)
+        download_action.connect("activate", lambda a, p: self.emit("download-requested", self.path))
+        action_group.add_action(download_action)
+
+        popover = Gtk.PopoverMenu.new_from_model(menu)
+        popover.set_parent(self)
+        popover.insert_action_group("file", action_group)
+        popover.set_has_arrow(False)
+
+        rect = Gdk.Rectangle()
+        rect.x = int(x)
+        rect.y = int(y)
+        rect.width = 1
+        rect.height = 1
+        popover.set_pointing_to(rect)
+        popover.popup()
+
+
+class RemoteSearchResultRow(Gtk.ListBoxRow):
+    """Fila que representa un resultado de búsqueda remota."""
+
+    __gtype_name__ = "RemoteSearchResultRow"
+
+    __gsignals__ = {
+        "navigate-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+        "copy-path-requested": (GObject.SignalFlags.RUN_FIRST, None, (str,)),
+    }
+
+    def __init__(self, path: str, name: str, is_dir: bool, root_path: str):
+        super().__init__()
+
+        self.path = path
+        self.name = name
+        self.root_path = root_path
+        self.is_directory = is_dir
+
+        self.set_selectable(False)
+
+        # Box horizontal
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        box.set_margin_start(4)
+        box.set_margin_end(4)
+        box.set_margin_top(2)
+        box.set_margin_bottom(2)
+
+        # Icono
+        icon_name = "folder-symbolic" if self.is_directory else "text-x-generic-symbolic"
+        icon = Gtk.Image.new_from_icon_name(icon_name)
+        icon.set_pixel_size(14)
+        box.append(icon)
+
+        # Box vertical para nombre y path
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        text_box.set_hexpand(True)
+
+        # Nombre del archivo
+        name_label = Gtk.Label(label=name)
+        name_label.set_ellipsize(3)
+        name_label.set_xalign(0)
+        text_box.append(name_label)
+
+        # Path relativo
+        if path.startswith(root_path):
+            relative = path[len(root_path):].lstrip("/")
+        else:
+            relative = path
+        path_label = Gtk.Label(label=relative)
+        path_label.set_ellipsize(3)
+        path_label.set_xalign(0)
+        path_label.add_css_class("dim-label")
+        path_label.add_css_class("caption")
+        text_box.append(path_label)
+
+        box.append(text_box)
+
+        # Botón para navegar a la ubicación
+        nav_btn = Gtk.Button()
+        nav_btn.set_icon_name("find-location-symbolic")
+        nav_btn.set_tooltip_text("Go to location")
+        nav_btn.add_css_class("flat")
+        nav_btn.set_valign(Gtk.Align.CENTER)
+        nav_btn.connect("clicked", self._on_navigate_clicked)
+        box.append(nav_btn)
+
+        self.set_child(box)
+
+        # Drag source
+        drag_source = Gtk.DragSource()
+        drag_source.set_actions(Gdk.DragAction.COPY)
+        drag_source.connect("prepare", self._on_drag_prepare)
+        self.add_controller(drag_source)
+
+    def _on_navigate_clicked(self, button: Gtk.Button):
+        """Navega a la ubicación del archivo."""
+        self.emit("navigate-requested", self.path)
+
+    def _on_drag_prepare(self, source, x, y):
+        """Prepara los datos para el drag."""
+        return Gdk.ContentProvider.new_for_value(self.path)

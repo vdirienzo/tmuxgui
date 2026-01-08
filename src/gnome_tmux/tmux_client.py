@@ -305,16 +305,21 @@ class RemoteTmuxClient:
     def is_connected(self) -> bool:
         """Verifica si hay una conexión SSH activa (ControlMaster)."""
         # Check if socket exists
-        if not Path(self._control_path).exists():
+        socket_path = Path(self._control_path)
+        if not socket_path.exists():
             return False
+
         # Quick check with ssh -O check
         cmd = [
             "ssh", "-O", "check",
             "-o", f"ControlPath={self._control_path}",
             f"{self.user}@{self.host}",
         ]
-        result = subprocess.run(cmd, capture_output=True, timeout=2)
-        return result.returncode == 0
+        try:
+            result = subprocess.run(cmd, capture_output=True, timeout=2)
+            return result.returncode == 0
+        except Exception:
+            return False
 
     def is_tmux_available(self) -> bool:
         """Verifica si tmux está instalado en el servidor remoto."""
@@ -461,3 +466,141 @@ class RemoteTmuxClient:
                 socket_path.unlink()
             except Exception:
                 pass
+
+    # --- File Operations ---
+
+    def _run_ssh_command(
+        self, command: str, timeout: float = 5.0
+    ) -> subprocess.CompletedProcess:
+        """Ejecuta un comando SSH genérico (no tmux)."""
+        if not Path(self._control_path).exists():
+            return subprocess.CompletedProcess([], 1, "", "no connection")
+
+        cmd = self._get_ssh_base() + [command]
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return subprocess.CompletedProcess(cmd, 1, "", "timeout")
+
+    def get_home_dir(self) -> str | None:
+        """Obtiene el directorio home del usuario remoto."""
+        if not self.is_connected():
+            return None
+        result = self._run_ssh_command("echo $HOME")
+        if result.returncode == 0:
+            return result.stdout.strip()
+        return None
+
+    def list_dir(self, path: str) -> list[dict] | None:
+        """
+        Lista el contenido de un directorio remoto.
+        Retorna lista de dicts con: name, is_dir, size, mtime
+        """
+        if not self.is_connected():
+            return None
+
+        # Usar ls con formato parseable
+        # -A: no mostrar . y ..
+        # -l: formato largo
+        # Intentar sin --time-style primero (más compatible)
+        cmd = f"ls -Al {path!r} 2>&1"
+        result = self._run_ssh_command(cmd)
+
+
+        if result.returncode != 0:
+            return None
+
+        entries = []
+        for line in result.stdout.strip().split("\n"):
+            if not line or line.startswith("total"):
+                continue
+
+            # Formato: -rw-r--r-- 1 user group size date time name
+            # o: drwxr-xr-x 2 user group size date time name
+            parts = line.split()
+            if len(parts) < 9:
+                # Intentar con menos columnas (sin grupo en algunos sistemas)
+                if len(parts) >= 8:
+                    perms = parts[0]
+                    name = " ".join(parts[7:])  # El nombre puede tener espacios
+                else:
+                    continue
+            else:
+                perms = parts[0]
+                # El nombre empieza en la columna 8 (índice 8) y puede tener espacios
+                name = " ".join(parts[8:])
+
+            # Ignorar algunos archivos ocultos especiales, pero mostrar el resto
+            if name in (".", ".."):
+                continue
+
+            entries.append({
+                "name": name,
+                "is_dir": perms.startswith("d"),
+                "size": 0,
+                "mtime": 0,
+                "is_hidden": name.startswith("."),
+            })
+
+
+        # Ordenar: directorios primero, luego por nombre
+        entries.sort(key=lambda x: (not x["is_dir"], x["name"].lower()))
+        return entries
+
+    def file_exists(self, path: str) -> bool:
+        """Verifica si un archivo o directorio existe en el remoto."""
+        if not self.is_connected():
+            return False
+        result = self._run_ssh_command(f"test -e {path!r} && echo yes || echo no")
+        return result.returncode == 0 and "yes" in result.stdout
+
+    def is_dir(self, path: str) -> bool:
+        """Verifica si un path es un directorio en el remoto."""
+        if not self.is_connected():
+            return False
+        result = self._run_ssh_command(f"test -d {path!r} && echo yes || echo no")
+        return result.returncode == 0 and "yes" in result.stdout
+
+    def download_file(self, remote_path: str, local_path: str) -> bool:
+        """
+        Descarga un archivo del servidor remoto usando scp.
+        Retorna True si tuvo éxito.
+        """
+        if not self.is_connected():
+            return False
+
+        # Usar scp con el ControlMaster existente
+        cmd = [
+            "scp",
+            "-P", self.port,
+            "-o", f"ControlPath={self._control_path}",
+            "-o", "ControlMaster=no",
+            f"{self.user}@{self.host}:{remote_path}",
+            local_path,
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            return result.returncode == 0
+        except subprocess.TimeoutExpired:
+            return False
+
+    def search_files(self, root: str, query: str, mode: str = "name") -> list[str]:
+        """
+        Busca archivos en el servidor remoto.
+        mode: 'name' (por nombre), 'content' (grep en contenido)
+        """
+        if not self.is_connected():
+            return []
+
+        if mode == "name":
+            cmd = f"find {root!r} -name '*{query}*' -not -path '*/.*' 2>/dev/null | head -100"
+        elif mode == "content":
+            cmd = f"grep -r -l -i {query!r} {root!r} 2>/dev/null | head -100"
+        else:
+            return []
+
+        result = self._run_ssh_command(cmd, timeout=10.0)
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+
+        return [line for line in result.stdout.strip().split("\n") if line]
