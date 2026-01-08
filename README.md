@@ -175,7 +175,11 @@ When connected to a remote SSH session, the file browser automatically switches 
 
 ## Installation
 
-### Debian/Ubuntu
+### Recommended: Native Installation
+
+The native installation is **recommended** for the best experience. It provides full terminal resize support and better performance.
+
+#### Debian/Ubuntu
 
 ```bash
 # Install system dependencies
@@ -191,11 +195,14 @@ sudo apt install \
 git clone https://github.com/vdirienzo/tmuxgui.git
 cd tmuxgui
 
-# Run the application
+# Install to desktop (adds icon and menu entry)
+./install-native.sh
+
+# Or run directly without installing
 ./run.py
 ```
 
-### Fedora
+#### Fedora
 
 ```bash
 # Install system dependencies
@@ -206,13 +213,13 @@ sudo dnf install \
     vte291-gtk4 \
     tmux
 
-# Clone and run
+# Clone and install
 git clone https://github.com/vdirienzo/tmuxgui.git
 cd tmuxgui
-./run.py
+./install-native.sh
 ```
 
-### Arch Linux
+#### Arch Linux
 
 ```bash
 # Install system dependencies
@@ -223,15 +230,28 @@ sudo pacman -S \
     vte4 \
     tmux
 
-# Clone and run
+# Clone and install
 git clone https://github.com/vdirienzo/tmuxgui.git
 cd tmuxgui
-./run.py
+./install-native.sh
 ```
 
-### Flatpak (Universal)
+#### Uninstall Native
 
-**Requirements:** tmux must be installed on the host system (the Flatpak uses the host's tmux via `flatpak-spawn`).
+```bash
+cd tmuxgui
+./uninstall-native.sh
+```
+
+---
+
+### Flatpak (Alternative)
+
+> **Known Limitation:** The Flatpak version has a terminal resize issue. When you resize the window, the tmux content may not scale properly. This is due to how `flatpak-spawn` handles PTY signals between the sandbox and host. For the best experience, use the native installation above.
+
+**Requirements:** tmux must be installed on the host system.
+
+#### Build from Source
 
 ```bash
 # Install flatpak-builder if needed
@@ -241,13 +261,25 @@ sudo dnf install flatpak flatpak-builder tmux  # Fedora
 # Add Flathub repository
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-# Install GNOME SDK (if not already installed)
-flatpak install org.gnome.Sdk//49
+# Install GNOME SDK
+flatpak install flathub org.gnome.Sdk//49 org.gnome.Platform//49
 
 # Clone and build
 git clone https://github.com/vdirienzo/tmuxgui.git
 cd tmuxgui
 ./build-flatpak.sh
+
+# Run
+flatpak run io.github.vdirienzo.TmuxGUI
+```
+
+#### Install from Bundle
+
+If you have a `.flatpak` bundle file:
+
+```bash
+# Install the bundle
+flatpak install tmuxgui.flatpak
 
 # Run
 flatpak run io.github.vdirienzo.TmuxGUI
@@ -261,10 +293,10 @@ To create a distributable `.flatpak` file:
 flatpak build-bundle ~/.local/share/flatpak/repo tmuxgui.flatpak io.github.vdirienzo.TmuxGUI
 ```
 
-Install on another machine:
+#### Uninstall Flatpak
 
 ```bash
-flatpak install tmuxgui.flatpak
+flatpak uninstall io.github.vdirienzo.TmuxGUI
 ```
 
 ## Usage
@@ -497,6 +529,21 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 #### Fixed
 - Remote session row button spacing now matches local sessions
 - Buttons grouped with linked CSS class for consistent UI
+
+### [0.4.2] - 2026-01-08
+
+#### Added
+
+**Native Installation**
+- `install-native.sh` script for desktop integration
+- `uninstall-native.sh` for clean removal
+- Desktop entry with icon for application menu
+- Recommended as primary installation method
+
+#### Documentation
+- Updated README with native vs Flatpak comparison
+- Documented Flatpak terminal resize limitation
+- Added installation instructions for all methods
 
 ### [0.4.0] - 2026-01-07
 

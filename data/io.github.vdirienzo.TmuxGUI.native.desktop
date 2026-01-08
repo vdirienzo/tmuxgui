@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=TmuxGUI
+Comment=GNOME frontend for tmux terminal multiplexer
+Exec=python3 /home/user/projects/tmuxgui/run.py
+Icon=io.github.vdirienzo.TmuxGUI
+Terminal=false
+Type=Application
+Categories=System;TerminalEmulator;Utility;
+Keywords=terminal;tmux;session;multiplexer;
+StartupNotify=true
