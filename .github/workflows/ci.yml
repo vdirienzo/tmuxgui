@@ -1,0 +1,80 @@
+# CI/CD Pipeline for tmuxgui
+# Autor: Homero Thompson del Lago del Terror
+#
+# Este workflow verifica:
+# - Límite de líneas por archivo (enforcement de modularidad)
+# - Linting con Ruff
+# - Formateo con Ruff
+# - Type checking con Mypy
+# - Tests con Pytest
+
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      # Enforcement de modularidad - CRÍTICO
+      - name: Check file lengths (max 300 lines)
+        run: |
+          python scripts/check_file_length.py \
+            $(find src -name "*.py" -type f) \
+            --max-lines 300 --warn-at 250
+
+      - name: Ruff lint
+        run: uv run ruff check src/ tests/
+
+      - name: Ruff format check
+        run: uv run ruff format --check src/ tests/
+
+      - name: Mypy type check
+        run: uv run mypy src/ --ignore-missing-imports
+        continue-on-error: true  # Permitir warnings por ahora
+
+      - name: Run tests
+        run: uv run pytest tests/ -v --tb=short
+
+      - name: Run tests with coverage
+        run: uv run pytest tests/ --cov=src --cov-report=xml
+
+      # Opcional: subir coverage a Codecov
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     files: ./coverage.xml
+      #     fail_ci_if_error: false
+
+  # Job separado para security scan
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Bandit security scan
+        run: uv run bandit -r src/ -ll
+        continue-on-error: true  # Solo warnings, no bloquear

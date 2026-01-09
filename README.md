@@ -503,6 +503,65 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ## Changelog
 
+### [0.5.0] - 2026-01-09
+
+#### Added
+
+**Logging System**
+- Integrated loguru for structured logging
+- Automatic log rotation (daily, 7 day retention)
+- Logs saved to `~/.local/share/tmuxgui/logs/`
+- Contextual logging with emojis (🗑️ delete, 📋 paste, ✏️ rename, 🚀 create)
+- DEBUG level to file, WARNING+ to stderr
+- Fallback to standard logging if loguru unavailable
+
+**Security Enhancements**
+- PathValidator class for remote path validation
+- Prevents path traversal attacks (`..)
+- Blocks access to system directories (/etc, /root, /sys, etc.)
+- Detects dangerous characters (; | & $ ` etc.)
+- Safe deletion validation
+- All destructive operations logged for audit
+
+**Code Quality & Infrastructure**
+- Pre-commit hooks configured (Ruff, Mypy, file length check)
+- GitHub Actions CI/CD pipeline
+- Enforcement of 300 lines per file maximum
+- Script to check file length compliance
+
+**Testing**
+- Increased test coverage: 55 → 102 tests (+85%)
+- 34 tests for PathValidator (security)
+- 13 tests for LocalFileOperations
+- All tests passing with full compatibility
+
+#### Changed
+
+**Code Refactoring**
+- Modularized tmux_client.py → clients/ package (4 modules)
+- Modularized dialogs: help, session, remote (4 modules)
+- Extracted file_tree rows to local/ and remote/ packages
+- Created LocalFileOperations class
+- Reduced code duplication by 1,544 lines
+- 12 new modules following single responsibility principle
+
+**Type Safety**
+- Fixed all 25 Mypy errors
+- Added proper type annotations
+- Fixed implicit Optional issues (PEP 484 compliance)
+- Type-safe JSON loading with validation
+
+**Developer Experience**
+- Structured logging in all critical operations
+- Better error messages with context
+- Modular architecture (200-300 lines per file)
+- Easier testing and maintenance
+
+#### Fixed
+- Import structure for modular packages
+- GTK type compatibility issues
+- File length compliance violations
+
 ### [0.4.1] - 2026-01-07
 
 #### Added

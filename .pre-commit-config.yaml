@@ -1,0 +1,56 @@
+# Pre-commit configuration for tmuxgui
+# Autor: Homero Thompson del Lago del Terror
+#
+# Instalar: uv run pre-commit install
+# Ejecutar manual: uv run pre-commit run --all-files
+
+repos:
+  # Ruff - Linting y formateo (reemplaza black, isort, flake8)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Verificar líneas por archivo (enforcement de modularidad)
+  - repo: local
+    hooks:
+      - id: check-file-length
+        name: Check file length (max 300 lines)
+        entry: python3 scripts/check_file_length.py
+        language: system
+        types: [python]
+        args: [--max-lines, "300", --warn-at, "250"]
+        pass_filenames: true
+        # Excluir archivos de test y migraciones
+        exclude: ^(tests/|migrations/)
+
+  # Verificar que no haya secrets
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package.lock.json
+
+  # Verificar YAML
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

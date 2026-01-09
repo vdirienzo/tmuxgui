@@ -1,12 +1,14 @@
 [project]
 name = "tmuxgui"
-version = "0.4.2"
+version = "0.5.0"
 description = "GNOME native frontend for tmux"
 authors = [
     { name = "Homero Thompson del Lago del Terror" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "loguru>=0.7.3",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -40,3 +42,23 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["build", "build-dir", ".venv"]
+
+# Custom rule: max 300 lines per file (enforced by pre-commit + CI)
+# See: scripts/check_file_length.py
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.2",
+    "mypy>=1.19.1",
+    "pre-commit>=3.7.0",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.11",
+]

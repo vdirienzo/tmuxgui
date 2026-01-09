@@ -8,6 +8,42 @@ Autor: Homero Thompson del Lago del Terror
 import sys
 from pathlib import Path
 
+# Configurar loguru antes de cualquier import
+try:
+    from loguru import logger
+
+    # Configuración de loguru para la aplicación
+    logger.remove()  # Remover handler por defecto
+
+    # Log a archivo rotado
+    log_dir = Path.home() / ".local" / "share" / "tmuxgui" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.add(
+        log_dir / "tmuxgui_{time:YYYY-MM-DD}.log",
+        rotation="00:00",
+        retention="7 days",
+        compression="zip",
+        level="DEBUG",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+    )
+
+    # Log a stderr solo WARNING+
+    logger.add(
+        sys.stderr,
+        level="WARNING",
+        format="<level>{level: <8}</level> | <cyan>{name}:{function}</cyan> | {message}",
+    )
+
+    logger.info("TmuxGUI iniciando...")
+except ImportError:
+    # Fallback a logging estándar si loguru no está disponible
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)  # type: ignore
+    logger.info("TmuxGUI iniciando (sin loguru)...")
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -25,7 +61,12 @@ APP_ID = "io.github.vdirienzo.TmuxGUI"
 # Ruta al icono
 ICON_PATH = (
     Path(__file__).parent.parent.parent
-    / "data" / "icons" / "hicolor" / "512x512" / "apps" / f"{APP_ID}.png"
+    / "data"
+    / "icons"
+    / "hicolor"
+    / "512x512"
+    / "apps"
+    / f"{APP_ID}.png"
 )
 
 

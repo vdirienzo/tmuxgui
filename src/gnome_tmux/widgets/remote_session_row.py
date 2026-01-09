@@ -11,7 +11,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, GObject, Gtk
 
-from ..tmux_client import Session, Window
+from ..clients import Session, Window
 
 
 class RemoteWindowRow(Adw.ActionRow):
@@ -27,9 +27,7 @@ class RemoteWindowRow(Adw.ActionRow):
         ),
     }
 
-    def __init__(
-        self, session_name: str, window: Window, host: str, user: str, port: str
-    ):
+    def __init__(self, session_name: str, window: Window, host: str, user: str, port: str):
         super().__init__()
 
         self.session_name = session_name
@@ -98,9 +96,7 @@ class RemoteSessionRow(Adw.ExpanderRow):
         ),
     }
 
-    def __init__(
-        self, session: Session, host: str, user: str, port: str, connected: bool = True
-    ):
+    def __init__(self, session: Session, host: str, user: str, port: str, connected: bool = True):
         super().__init__()
 
         self.session = session

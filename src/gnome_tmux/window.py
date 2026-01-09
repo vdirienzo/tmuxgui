@@ -11,9 +11,17 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, GLib, GObject, Gtk
 
+try:
+    from loguru import logger
+except ImportError:
+    import logging
+
+    logger = logging.getLogger(__name__)  # type: ignore
+
+from .clients import RemoteTmuxClient, TmuxClient
+from .dialogs import show_help_dialog, show_theme_dialog
 from .remote_hosts import RemoteHost, remote_hosts_manager
 from .themes import theme_manager
-from .tmux_client import RemoteTmuxClient, TmuxClient
 from .widgets import FileTree, SessionRow, TerminalView
 from .widgets.remote_session_row import RemoteSessionRow
 
@@ -121,9 +129,7 @@ class MainWindow(Adw.ApplicationWindow):
             }
         """)
         Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+            Gdk.Display.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
         toolbar_view.add_top_bar(header)
@@ -323,19 +329,24 @@ class MainWindow(Adw.ApplicationWindow):
                 break
             if index == 0 and self._expanded_sessions is None:
                 self._expanded_sessions = set()
+            # Garantizar que _expanded_sessions no es None para mypy
+            expanded = self._expanded_sessions
+            if expanded is None:
+                expanded = set()
+                self._expanded_sessions = expanded
             if isinstance(row, RemoteSessionRow):
                 key = f"remote:{row.user}@{row.host}:{row.session.name}"
                 if row.get_expanded():
-                    self._expanded_sessions.add(key)
-                elif key in self._expanded_sessions:
-                    self._expanded_sessions.discard(key)
+                    expanded.add(key)
+                elif key in expanded:
+                    expanded.discard(key)
                 remote_rows.append(row)
             elif isinstance(row, SessionRow):
                 key = f"local:{row.session.name}"
                 if row.get_expanded():
-                    self._expanded_sessions.add(key)
-                elif key in self._expanded_sessions:
-                    self._expanded_sessions.discard(key)
+                    expanded.add(key)
+                elif key in expanded:
+                    expanded.discard(key)
             index += 1
 
         # Limpiar solo filas locales (mantener remotas hasta que lleguen datos nuevos)
@@ -421,7 +432,7 @@ class MainWindow(Adw.ApplicationWindow):
         thread = threading.Thread(target=fetch_remote, daemon=True)
         thread.start()
 
-    def _add_remote_sessions_to_ui(self, results: list, hosts_without_tmux: list = None):
+    def _add_remote_sessions_to_ui(self, results: list, hosts_without_tmux: list | None = None):
         """Agrega sesiones remotas a la UI (llamar desde hilo principal)."""
         if self._closing:
             return False
@@ -486,7 +497,8 @@ class MainWindow(Adw.ApplicationWindow):
         # Si es error de tmux no instalado, mostrar instrucciones
         if "tmux" in message.lower() and "install" in message.lower():
             subtitle = Gtk.Label(
-                label="tmux is required to run this application.\nInstall it using your package manager:"
+                label="tmux is required to run this application.\n"
+                "Install it using your package manager:"
             )
             subtitle.add_css_class("dim-label")
             subtitle.set_justify(Gtk.Justification.CENTER)
@@ -561,8 +573,7 @@ class MainWindow(Adw.ApplicationWindow):
         local_group = Adw.PreferencesGroup(title="Local Session")
 
         local_row = Adw.ActionRow(
-            title="Create local session",
-            subtitle="Start a new tmux session on this machine"
+            title="Create local session", subtitle="Start a new tmux session on this machine"
         )
         local_row.set_activatable(True)
         local_icon = Gtk.Image.new_from_icon_name("utilities-terminal-symbolic")
@@ -583,8 +594,7 @@ class MainWindow(Adw.ApplicationWindow):
             for host in saved_hosts:
                 port_suffix = f":{host.port}" if host.port != "22" else ""
                 host_row = Adw.ActionRow(
-                    title=host.name,
-                    subtitle=f"{host.user}@{host.host}{port_suffix}"
+                    title=host.name, subtitle=f"{host.user}@{host.host}{port_suffix}"
                 )
                 host_row.set_activatable(True)
 
@@ -611,8 +621,7 @@ class MainWindow(Adw.ApplicationWindow):
                 delete_btn.add_css_class("error")
                 delete_btn.set_tooltip_text("Delete connection")
                 delete_btn.connect(
-                    "clicked",
-                    lambda b, h=host, d=dialog: self._confirm_delete_host(d, h)
+                    "clicked", lambda b, h=host, d=dialog: self._confirm_delete_host(d, h)
                 )
                 host_row.add_suffix(delete_btn)
 
@@ -622,15 +631,13 @@ class MainWindow(Adw.ApplicationWindow):
 
                 # Click para conectar
                 host_row.connect(
-                    "activated",
-                    lambda r, h=host: self._show_connect_to_host_dialog(dialog, h)
+                    "activated", lambda r, h=host: self._show_connect_to_host_dialog(dialog, h)
                 )
                 remote_group.add(host_row)
         else:
             # Placeholder si no hay hosts
             empty_row = Adw.ActionRow(
-                title="No saved connections",
-                subtitle="Add a remote connection to get started"
+                title="No saved connections", subtitle="Add a remote connection to get started"
             )
             empty_row.set_sensitive(False)
             empty_icon = Gtk.Image.new_from_icon_name("network-offline-symbolic")
@@ -640,8 +647,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Botón agregar nueva conexión
         add_row = Adw.ActionRow(
-            title="Add new connection",
-            subtitle="Configure a new remote server"
+            title="Add new connection", subtitle="Configure a new remote server"
         )
         add_row.set_activatable(True)
         add_row.add_css_class("accent")
@@ -755,12 +761,13 @@ class MainWindow(Adw.ApplicationWindow):
                 return
 
             from datetime import datetime, timezone
+
             new_host = RemoteHost(
                 name=name,
                 host=host,
                 user=user,
                 port=port,
-                last_used=datetime.now(timezone.utc).isoformat()
+                last_used=datetime.now(timezone.utc).isoformat(),
             )
             remote_hosts_manager.add_host(new_host)
 
@@ -839,12 +846,13 @@ class MainWindow(Adw.ApplicationWindow):
             remote_hosts_manager.remove_host(host.host, host.user, host.port)
 
             from datetime import datetime, timezone
+
             updated_host = RemoteHost(
                 name=name,
                 host=new_host_addr,
                 user=user,
                 port=port,
-                last_used=datetime.now(timezone.utc).isoformat()
+                last_used=datetime.now(timezone.utc).isoformat(),
             )
             remote_hosts_manager.add_host(updated_host)
 
@@ -863,8 +871,7 @@ class MainWindow(Adw.ApplicationWindow):
         dialog = Adw.MessageDialog(
             transient_for=parent_dialog,
             heading="Delete Connection?",
-            body=f"Are you sure you want to delete '{host.name}'?\n"
-                 f"({host.user}@{host.host})",
+            body=f"Are you sure you want to delete '{host.name}'?\n({host.user}@{host.host})",
         )
 
         dialog.add_response("cancel", "Cancel")
@@ -912,8 +919,7 @@ class MainWindow(Adw.ApplicationWindow):
         content.set_margin_end(12)
 
         group = Adw.PreferencesGroup(
-            title="Session",
-            description=f"Connect to {host.user}@{host.host}"
+            title="Session", description=f"Connect to {host.user}@{host.host}"
         )
 
         name_entry = Adw.EntryRow(title="Session name")
@@ -922,7 +928,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         attach_row = Adw.SwitchRow(
             title="Attach to existing",
-            subtitle="Connect to an existing session instead of creating new"
+            subtitle="Connect to an existing session instead of creating new",
         )
         group.add(attach_row)
 
@@ -960,13 +966,17 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _attach_to_session(self, name: str, window_index: int | None = None):
         """Adjunta al terminal a una sesión/ventana."""
+        window_str = f":{window_index}" if window_index is not None else ""
+        logger.info(f"📺 Adjuntando al terminal → {name}{window_str}")
+
         command = self.tmux.get_attach_command(name, window_index)
         self.terminal_view.attach_session(name, command)
         self.terminal_view.grab_focus()
 
         # Cambiar file tree a modo local
-        if hasattr(self, 'file_tree_widget') and self.file_tree_widget.is_remote:
+        if hasattr(self, "file_tree_widget") and self.file_tree_widget.is_remote:
             self.file_tree_widget.set_local_mode()
+            logger.debug("File tree cambiado a modo local")
 
         return False
 
@@ -974,6 +984,7 @@ class MainWindow(Adw.ApplicationWindow):
         """Obtiene o crea un cliente remoto para el host dado."""
         key = f"{user}@{host}:{port}"
         if key not in self._remote_clients:
+            logger.info(f"🔗 Creando cliente SSH para {key}")
             self._remote_clients[key] = RemoteTmuxClient(host, user, port)
         return self._remote_clients[key]
 
@@ -981,6 +992,7 @@ class MainWindow(Adw.ApplicationWindow):
         """Crea una sesión en un servidor remoto via SSH."""
         from datetime import datetime, timezone
 
+        logger.info(f"🚀 Creando sesión remota '{name}' en {user}@{host}:{port}")
         client = self._get_remote_client(host, user, port)
         command = client.get_new_session_command(name)
 
@@ -989,7 +1001,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.terminal_view.grab_focus()
 
         # Cambiar file tree a modo remoto
-        if hasattr(self, 'file_tree_widget'):
+        if hasattr(self, "file_tree_widget"):
             self.file_tree_widget.set_remote_mode(client)
 
         # Guardar host para uso futuro
@@ -998,7 +1010,7 @@ class MainWindow(Adw.ApplicationWindow):
             host=host,
             user=user,
             port=port,
-            last_used=datetime.now(timezone.utc).isoformat()
+            last_used=datetime.now(timezone.utc).isoformat(),
         )
         remote_hosts_manager.add_host(remote_host)
 
@@ -1015,7 +1027,7 @@ class MainWindow(Adw.ApplicationWindow):
             host=host,
             user=user,
             port=port,
-            last_used=datetime.now(timezone.utc).isoformat()
+            last_used=datetime.now(timezone.utc).isoformat(),
         )
         remote_hosts_manager.add_host(remote_host)
 
@@ -1061,15 +1073,13 @@ class MainWindow(Adw.ApplicationWindow):
         self.terminal_view.grab_focus()
 
         # Cambiar file tree a modo remoto
-        if hasattr(self, 'file_tree_widget'):
+        if hasattr(self, "file_tree_widget"):
             self.file_tree_widget.set_remote_mode(client)
 
         # Refresh para actualizar lista
         self._schedule_remote_refresh_until_sessions_found(host, user, port)
 
-    def _schedule_remote_refresh_until_sessions_found(
-        self, host: str, user: str, port: str
-    ):
+    def _schedule_remote_refresh_until_sessions_found(self, host: str, user: str, port: str):
         """Programa refreshes hasta encontrar sesiones del host remoto."""
         import threading
 
@@ -1190,7 +1200,7 @@ class MainWindow(Adw.ApplicationWindow):
             transient_for=self,
             heading="Kill Remote Session?",
             body=f"Are you sure you want to kill '{name}' on {host}?\n"
-                 "This will terminate all processes in the session.",
+            "This will terminate all processes in the session.",
         )
 
         dialog.add_response("cancel", "Cancel")
@@ -1211,6 +1221,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_window_selected(self, row, session_name: str, window_index: int):
         """Maneja la selección de una ventana específica."""
+        logger.info(f"🎯 Seleccionando ventana: {session_name}:{window_index}")
         self._attach_to_session(session_name, window_index)
         # Refresh con pequeño delay para que tmux procese el attach
         GLib.timeout_add(150, self._refresh_sessions)
@@ -1533,9 +1544,8 @@ class MainWindow(Adw.ApplicationWindow):
         is_sessions_source = value == "sessions"
 
         # Solo intercambiar si son secciones diferentes
-        should_swap = (
-            (is_sessions_target and is_filetree_source)
-            or (is_filetree_target and is_sessions_source)
+        should_swap = (is_sessions_target and is_filetree_source) or (
+            is_filetree_target and is_sessions_source
         )
         if should_swap:
             self._swap_sidebar_sections()
@@ -1577,212 +1587,11 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_help_clicked(self, button: Gtk.Button):
         """Muestra el diálogo de ayuda."""
-        dialog = Adw.Window(transient_for=self)
-        dialog.set_title("Help - TmuxGUI")
-        dialog.set_default_size(500, 600)
-        dialog.set_modal(True)
-
-        # Toolbar view
-        toolbar_view = Adw.ToolbarView()
-        dialog.set_content(toolbar_view)
-
-        # Header
-        header = Adw.HeaderBar()
-        header.set_show_end_title_buttons(True)
-        toolbar_view.add_top_bar(header)
-
-        # Scroll principal
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-
-        # Contenido
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
-        content.set_margin_top(24)
-        content.set_margin_bottom(24)
-        content.set_margin_start(24)
-        content.set_margin_end(24)
-
-        # Logo y título
-        logo_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        logo_box.set_halign(Gtk.Align.CENTER)
-
-        logo = Gtk.Image.new_from_icon_name("utilities-terminal-symbolic")
-        logo.set_pixel_size(64)
-        logo_box.append(logo)
-
-        title = Gtk.Label(label="TmuxGUI")
-        title.add_css_class("title-1")
-        logo_box.append(title)
-
-        version = Gtk.Label(label="Version 0.4.2")
-        version.add_css_class("dim-label")
-        logo_box.append(version)
-
-        subtitle = Gtk.Label(label="GNOME native frontend for tmux")
-        subtitle.add_css_class("dim-label")
-        logo_box.append(subtitle)
-
-        content.append(logo_box)
-        content.append(Gtk.Separator())
-
-        # Sección: Features
-        features_group = Adw.PreferencesGroup(title="Features")
-
-        features = [
-            ("Session Management", "Create, rename, delete tmux sessions"),
-            ("Window Management", "Create, rename, close and reorder windows"),
-            ("Remote Sessions", "Connect to remote hosts via SSH"),
-            ("Integrated Terminal", "VTE terminal with full tmux support"),
-            ("File Browser", "Navigate filesystem with CRUD operations"),
-            ("Drag and Drop", "Drag files/folders to terminal, reorder sections"),
-        ]
-
-        for title_text, desc in features:
-            row = Adw.ActionRow(title=title_text, subtitle=desc)
-            row.set_activatable(False)
-            features_group.add(row)
-
-        content.append(features_group)
-
-        # Sección: Keyboard Shortcuts
-        shortcuts_group = Adw.PreferencesGroup(title="Keyboard Shortcuts")
-
-        shortcuts = [
-            ("F9", "Toggle sessions sidebar"),
-            ("F10", "Toggle file browser"),
-            ("Ctrl+B d", "Detach from tmux session"),
-            ("Ctrl+B c", "Create new window (in tmux)"),
-            ("Ctrl+B n / p", "Next / Previous window"),
-            ("Ctrl+B %", "Split pane horizontally"),
-            ("Ctrl+B \"", "Split pane vertically"),
-        ]
-
-        for shortcut, desc in shortcuts:
-            row = Adw.ActionRow(title=shortcut, subtitle=desc)
-            row.set_activatable(False)
-            shortcuts_group.add(row)
-
-        content.append(shortcuts_group)
-
-        # Sección: Usage Tips
-        tips_group = Adw.PreferencesGroup(title="Quick Start")
-
-        tips = [
-            ("1. Create a session", "Click + button for local or remote sessions"),
-            ("2. Remote hosts", "Save SSH connections for quick access"),
-            ("3. Select a window", "Click on any window to attach terminal"),
-            ("4. Drag to terminal", "Drag files/folders to paste their path"),
-            ("5. Detach", "Press Ctrl+B d to detach from session"),
-        ]
-
-        for tip_title, tip_desc in tips:
-            row = Adw.ActionRow(title=tip_title, subtitle=tip_desc)
-            row.set_activatable(False)
-            tips_group.add(row)
-
-        content.append(tips_group)
-
-        content.append(Gtk.Separator())
-
-        # Sección: About
-        about_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        about_box.set_halign(Gtk.Align.CENTER)
-
-        author_label = Gtk.Label(label="Author")
-        author_label.add_css_class("heading")
-        about_box.append(author_label)
-
-        author_name = Gtk.Label(label="Homero Thompson del Lago del Terror")
-        about_box.append(author_name)
-
-        content.append(about_box)
-
-        # Copyright
-        copyright_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        copyright_box.set_halign(Gtk.Align.CENTER)
-        copyright_box.set_margin_top(12)
-
-        copyright_label = Gtk.Label(label="Copyright 2026")
-        copyright_label.add_css_class("dim-label")
-        copyright_box.append(copyright_label)
-
-        license_label = Gtk.Label(label="MIT License")
-        license_label.add_css_class("dim-label")
-        copyright_box.append(license_label)
-
-        github_label = Gtk.Label(label="github.com/vdirienzo/gnome-tmux")
-        github_label.add_css_class("dim-label")
-        copyright_box.append(github_label)
-
-        content.append(copyright_box)
-
-        scrolled.set_child(content)
-        toolbar_view.set_content(scrolled)
-
-        dialog.present()
+        show_help_dialog(self)
 
     def _on_theme_clicked(self, button: Gtk.Button):
         """Muestra el diálogo de selección de tema."""
-        dialog = Adw.Window(transient_for=self)
-        dialog.set_title("Theme")
-        dialog.set_default_size(350, 450)
-        dialog.set_modal(True)
-
-        # Toolbar view
-        toolbar_view = Adw.ToolbarView()
-        dialog.set_content(toolbar_view)
-
-        # Header
-        header = Adw.HeaderBar()
-        header.set_show_end_title_buttons(True)
-        toolbar_view.add_top_bar(header)
-
-        # Scroll
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-
-        # Contenido
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        content.set_margin_top(12)
-        content.set_margin_bottom(12)
-        content.set_margin_start(12)
-        content.set_margin_end(12)
-
-        # Grupo de temas
-        themes_group = Adw.PreferencesGroup(title="Select Theme")
-
-        current_theme = theme_manager.get_current_theme()
-        themes = theme_manager.get_available_themes()
-
-        # Crear un grupo de check buttons
-        first_check = None
-        for theme_id, theme_data in themes.items():
-            row = Adw.ActionRow(title=theme_data["name"])
-            row.set_activatable(True)
-
-            check = Gtk.CheckButton()
-            check.set_active(theme_id == current_theme)
-            if first_check is None:
-                first_check = check
-            else:
-                check.set_group(first_check)
-
-            check.connect("toggled", self._on_theme_toggled, theme_id)
-            row.add_prefix(check)
-            row.set_activatable_widget(check)
-            themes_group.add(row)
-
-        content.append(themes_group)
-
-        scrolled.set_child(content)
-        toolbar_view.set_content(scrolled)
-
-        dialog.present()
-
-    def _on_theme_toggled(self, check: Gtk.CheckButton, theme_id: str):
-        """Aplica el tema seleccionado."""
-        if check.get_active():
-            theme_manager.apply_theme(theme_id)
+        show_theme_dialog(self, theme_manager)
 
     def do_close_request(self) -> bool:
         """Maneja el cierre de la ventana."""
@@ -1798,7 +1607,7 @@ class MainWindow(Adw.ApplicationWindow):
             self._refresh_timeout_id = None
 
         # Matar proceso del terminal VTE si existe
-        if hasattr(self, 'terminal_view') and self.terminal_view._pid is not None:
+        if hasattr(self, "terminal_view") and self.terminal_view._pid is not None:
             try:
                 os.kill(self.terminal_view._pid, signal.SIGTERM)
             except (ProcessLookupError, OSError):
