@@ -4,7 +4,6 @@ file_tree.py - Widget de árbol de archivos estilo VS Code
 Autor: Homero Thompson del Lago del Terror
 """
 
-import json
 import os
 import re
 import subprocess
@@ -221,7 +220,8 @@ class FileTree(Gtk.Box):
         self._favorites_button.set_icon_name("starred-symbolic")
         self._favorites_button.set_tooltip_text("Favorites")
         self._favorites_button.add_css_class("flat")
-        self._update_favorites_menu()
+        # Crear popover inicial
+        self._update_favorites_popover()
         header_box.append(self._favorites_button)
 
         self.append(header_box)
@@ -293,7 +293,7 @@ class FileTree(Gtk.Box):
             self._path_label.set_text(self._root_path.name or str(self._root_path))
             self._path_label.set_tooltip_text(str(self._root_path))
 
-        self._update_favorites_menu()  # Actualizar estado del botón favoritos
+        self._update_favorites_popover()  # Actualizar estado del botón favoritos
 
         # Limpiar lista actual
         self._clear_list_box()
@@ -930,148 +930,11 @@ class FileTree(Gtk.Box):
         return self._clipboard_path is not None
 
     # --- Favoritos ---
-
-    def _load_favorites(self) -> list[str]:
-        """Carga la lista de favoritos desde el archivo de configuración."""
-        try:
-            if self._FAVORITES_FILE.exists():
-                with open(self._FAVORITES_FILE) as f:
-                    data = json.load(f)
-                    favorites = data.get("favorites", [])
-                    # Validar que sea una lista de strings
-                    if isinstance(favorites, list):
-                        return [str(f) for f in favorites]
-        except (json.JSONDecodeError, OSError) as e:
-            logger.debug(f"Error loading favorites: {e}")
-        return []
-
-    def _save_favorites(self):
-        """Guarda la lista de favoritos en el archivo de configuración."""
-        try:
-            self._FAVORITES_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(self._FAVORITES_FILE, "w") as f:
-                json.dump({"favorites": self._favorites}, f, indent=2)
-        except OSError as e:
-            logger.error(f"Error saving favorites: {e}")
-
-    def _update_favorites_menu(self):
-        """Actualiza el menú de favoritos."""
-        # Crear popover con contenido personalizado
-        popover = Gtk.Popover()
-        popover.set_has_arrow(True)
-
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        box.set_margin_top(6)
-        box.set_margin_bottom(6)
-
-        # Botón agregar actual a favoritos
-        current_path_str = str(self._root_path)
-        is_favorite = current_path_str in self._favorites
-
-        add_btn = Gtk.Button()
-        add_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        add_btn_box.set_margin_start(8)
-        add_btn_box.set_margin_end(8)
-
-        if is_favorite:
-            add_btn_box.append(Gtk.Image.new_from_icon_name("starred-symbolic"))
-            add_btn_box.append(Gtk.Label(label="Remove from favorites"))
-            add_btn.connect("clicked", self._on_remove_current_favorite, popover)
-        else:
-            add_btn_box.append(Gtk.Image.new_from_icon_name("non-starred-symbolic"))
-            add_btn_box.append(Gtk.Label(label="Add to favorites"))
-            add_btn.connect("clicked", self._on_add_current_favorite, popover)
-
-        add_btn.set_child(add_btn_box)
-        add_btn.add_css_class("flat")
-        box.append(add_btn)
-
-        # Separador si hay favoritos
-        if self._favorites:
-            box.append(Gtk.Separator())
-
-            # Lista de favoritos
-            for fav_path in self._favorites:
-                fav_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-
-                # Botón para navegar al favorito
-                fav_btn = Gtk.Button()
-                fav_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-                fav_btn_box.set_margin_start(8)
-                fav_btn_box.set_margin_end(4)
-
-                fav_btn_box.append(Gtk.Image.new_from_icon_name("folder-symbolic"))
-                fav_label = Gtk.Label(label=Path(fav_path).name or fav_path)
-                fav_label.set_tooltip_text(fav_path)
-                fav_label.set_ellipsize(3)
-                fav_label.set_max_width_chars(20)
-                fav_label.set_hexpand(True)
-                fav_label.set_xalign(0)
-                fav_btn_box.append(fav_label)
-
-                fav_btn.set_child(fav_btn_box)
-                fav_btn.add_css_class("flat")
-                fav_btn.set_hexpand(True)
-                fav_btn.connect("clicked", self._on_favorite_clicked, fav_path, popover)
-                fav_row.append(fav_btn)
-
-                # Botón para eliminar favorito
-                delete_btn = Gtk.Button()
-                delete_btn.set_icon_name("user-trash-symbolic")
-                delete_btn.add_css_class("flat")
-                delete_btn.set_tooltip_text("Remove from favorites")
-                delete_btn.connect("clicked", self._on_remove_favorite_clicked, fav_path, popover)
-                fav_row.append(delete_btn)
-
-                box.append(fav_row)
-
-        popover.set_child(box)
-        self._favorites_button.set_popover(popover)
-
-    def _on_add_current_favorite(self, button: Gtk.Button, popover: Gtk.Popover):
-        """Agrega el path actual a favoritos."""
-        current_path = str(self._root_path)
-        if current_path not in self._favorites:
-            self._favorites.append(current_path)
-            self._save_favorites()
-            self._update_favorites_menu()
-        popover.popdown()
-
-    def _on_remove_current_favorite(self, button: Gtk.Button, popover: Gtk.Popover):
-        """Elimina el path actual de favoritos."""
-        current_path = str(self._root_path)
-        if current_path in self._favorites:
-            self._favorites.remove(current_path)
-            self._save_favorites()
-            self._update_favorites_menu()
-        popover.popdown()
-
-    def _on_favorite_clicked(self, button: Gtk.Button, fav_path: str, popover: Gtk.Popover):
-        """Navega a un favorito."""
-        path = Path(fav_path)
-        if path.exists() and path.is_dir():
-            self._root_path = path
-            self._expanded_dirs.clear()
-            self._load_tree()
-            self._update_favorites_menu()
-        popover.popdown()
-
-    def _on_remove_favorite_clicked(self, button: Gtk.Button, fav_path: str, popover: Gtk.Popover):
-        """Elimina un favorito de la lista."""
-        if fav_path in self._favorites:
-            self._favorites.remove(fav_path)
-            self._save_favorites()
-            self._update_favorites_menu()
-        popover.popdown()
-
     def _on_add_to_favorites_requested(self, row, path: Path):
         """Agrega una carpeta a favoritos desde el menú contextual."""
-        path_str = str(path)
-        if path_str not in self._favorites:
-            self._favorites.append(path_str)
-            self._save_favorites()
-            self._update_favorites_menu()
+        self._favorites_manager.add(str(path))
 
+        self._update_favorites_popover()
     def _on_copy_requested(self, row, path: Path):
         """Maneja solicitud de copiar archivo/carpeta."""
         self.copy_path(path)
@@ -1204,3 +1067,18 @@ class FileTree(Gtk.Box):
             self._load_tree()
         except (PermissionError, OSError) as e:
             logger.error(f"Error creating folder: {e}")
+
+    def _update_favorites_popover(self):
+        """Actualiza el popover de favoritos."""
+        def on_navigate(fav_path: str):
+            """Callback cuando se navega a un favorito."""
+            path = Path(fav_path)
+            if path.exists() and path.is_dir():
+                self._root_path = path
+                self._expanded_dirs.clear()
+                self._load_tree()
+                self._update_favorites_popover()
+
+        current_path = str(self._root_path)
+        popover = self._favorites_manager.create_popover(current_path, on_navigate)
+        self._favorites_button.set_popover(popover)
