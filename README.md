@@ -530,20 +530,24 @@ We use [Conventional Commits](https://www.conventionalcommits.org/):
 - Script to check file length compliance
 
 **Testing**
-- Increased test coverage: 55 → 102 tests (+85%)
+- Increased test coverage: 55 → 134 tests (+144%)
 - 34 tests for PathValidator (security)
 - 13 tests for LocalFileOperations
+- 20 tests for parsers (100% coverage)
+- 8 tests for models (100% coverage)
 - All tests passing with full compatibility
 
 #### Changed
 
 **Code Refactoring**
-- Modularized tmux_client.py → clients/ package (4 modules)
-- Modularized dialogs: help, session, remote (4 modules)
-- Extracted file_tree rows to local/ and remote/ packages
-- Created LocalFileOperations class
+- Modularized tmux_client.py → clients/ package (6 modules)
+- Modularized dialogs: help, session, remote (6 modules)
+- Extracted file_tree rows to local/ and remote/ packages (13 modules)
+- Created LocalFileOperations and RemoteFileOperations classes
+- Created FavoritesManager for bookmark management
 - Reduced code duplication by 1,544 lines
-- 12 new modules following single responsibility principle
+- 25 new modules following single responsibility principle
+- 92% of files now comply with 300-line guideline (34/37 files)
 
 **Type Safety**
 - Fixed all 25 Mypy errors
