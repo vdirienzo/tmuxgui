@@ -5,8 +5,6 @@ Autor: Homero Thompson del Lago del Terror
 """
 
 import os
-import re
-import subprocess
 from pathlib import Path
 
 import gi
@@ -24,7 +22,13 @@ except ImportError:
 
     logger = logging.getLogger(__name__)  # type: ignore
 
-from .local import FileTreeRow, SearchResultRow
+from .local import (
+    FileTreeRow,
+    SearchResultRow,
+    search_by_content,
+    search_by_name,
+    search_by_regex,
+)
 from .remote import RemoteFileTreeRow, RemoteSearchResultRow
 from .ui import FavoritesManager
 
@@ -406,61 +410,16 @@ class FileTree(Gtk.Box):
 
     def _search_by_name(self, query: str) -> list[Path]:
         """Busca archivos por nombre usando find."""
-        try:
-            result = subprocess.run(
-                ["find", str(self._root_path), "-name", f"*{query}*", "-not", "-path", "*/.*"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            paths = []
-            for line in result.stdout.strip().split("\n"):
-                if line:
-                    path = Path(line)
-                    if path.exists() and path != self._root_path:
-                        paths.append(path)
-            return paths[:100]  # Limitar resultados
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return []
+        return search_by_name(self._root_path, query)
 
-    def _search_by_regex(self, query: str) -> list[Path]:
+    def _search_by_name(self, query: str) -> list[Path]:
+        """Busca archivos por nombre usando find."""
         """Busca archivos por patrón regex."""
-        try:
-            pattern = re.compile(query, re.IGNORECASE)
-        except re.error:
-            return []
-
-        results = []
-        try:
-            for path in self._root_path.rglob("*"):
-                if path.name.startswith("."):
-                    continue
-                if pattern.search(path.name):
-                    results.append(path)
-                if len(results) >= 100:
-                    break
-        except (PermissionError, OSError) as e:
-            logger.debug(f"Permission error during regex search: {e}")
-        return results
+        return search_by_regex(self._root_path, query)
 
     def _search_by_content(self, query: str) -> list[Path]:
         """Busca en contenido de archivos usando grep."""
-        try:
-            result = subprocess.run(
-                ["grep", "-r", "-l", "-i", "--include=*", query, str(self._root_path)],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            paths = []
-            for line in result.stdout.strip().split("\n"):
-                if line:
-                    path = Path(line)
-                    if path.exists() and not any(p.startswith(".") for p in path.parts):
-                        paths.append(path)
-            return paths[:100]
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return []
+        return search_by_content(self._root_path, query)
 
     def _show_search_results(self):
         """Muestra los resultados de búsqueda."""
@@ -935,6 +894,7 @@ class FileTree(Gtk.Box):
         self._favorites_manager.add(str(path))
 
         self._update_favorites_popover()
+
     def _on_copy_requested(self, row, path: Path):
         """Maneja solicitud de copiar archivo/carpeta."""
         self.copy_path(path)
@@ -1070,6 +1030,7 @@ class FileTree(Gtk.Box):
 
     def _update_favorites_popover(self):
         """Actualiza el popover de favoritos."""
+
         def on_navigate(fav_path: str):
             """Callback cuando se navega a un favorito."""
             path = Path(fav_path)
