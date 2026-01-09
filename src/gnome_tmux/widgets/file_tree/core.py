@@ -27,6 +27,7 @@ except ImportError:
 
 from .local import FileTreeRow, SearchResultRow
 from .remote import RemoteFileTreeRow, RemoteSearchResultRow
+from .ui import FavoritesManager
 
 
 class FileTree(Gtk.Box):
@@ -48,7 +49,7 @@ class FileTree(Gtk.Box):
         self._root_path = Path(root_path or os.environ.get("HOME", "/"))
         self._expanded_dirs: set[str] = set()  # Directorios expandidos
         self._clipboard_path: str | None = None  # Path copiado al clipboard
-        self._favorites: list[str] = self._load_favorites()
+        self._favorites_manager = FavoritesManager(self._FAVORITES_FILE)
 
         # Remote mode support
         self._remote_client = None  # RemoteTmuxClient when in remote mode

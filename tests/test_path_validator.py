@@ -5,7 +5,6 @@ Autor: Homero Thompson del Lago del Terror
 """
 
 import pytest
-
 from gnome_tmux.clients.path_validator import PathValidator
 
 
