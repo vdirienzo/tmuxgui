@@ -75,6 +75,7 @@ class TerminalView(Gtk.Box):
         if self._pid is not None:
             try:
                 import signal
+
                 os.kill(self._pid, signal.SIGTERM)
             except (ProcessLookupError, OSError):
                 pass  # Proceso ya terminó

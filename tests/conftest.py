@@ -47,7 +47,7 @@ def failed_ssh_result():
 @pytest.fixture
 def remote_client_connected(mock_subprocess_run, mock_path_exists):
     """RemoteTmuxClient con conexión activa mockeada."""
-    from src.gnome_tmux.tmux_client import RemoteTmuxClient
+    from gnome_tmux.clients import RemoteTmuxClient
 
     # Socket existe
     mock_path_exists.return_value = True
@@ -64,7 +64,7 @@ def remote_client_connected(mock_subprocess_run, mock_path_exists):
 @pytest.fixture
 def remote_client_disconnected(mock_path_exists):
     """RemoteTmuxClient sin conexión."""
-    from src.gnome_tmux.tmux_client import RemoteTmuxClient
+    from gnome_tmux.clients import RemoteTmuxClient
 
     # Socket no existe
     mock_path_exists.return_value = False

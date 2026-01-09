@@ -12,7 +12,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, GObject, Gtk
 
-from ..tmux_client import Session, Window
+from ..clients import Session, Window
 
 
 class WindowRow(Adw.ActionRow):
@@ -242,9 +242,7 @@ class SessionRow(Adw.ExpanderRow):
         """Propaga la señal de renombrar ventana."""
         self.emit("rename-window-requested", session_name, window_index, current_name)
 
-    def _on_window_exit_requested(
-        self, row: WindowRow, session_name: str, window_index: int
-    ):
+    def _on_window_exit_requested(self, row: WindowRow, session_name: str, window_index: int):
         """Propaga la señal de cerrar ventana."""
         self.emit("exit-window-requested", session_name, window_index)
 

@@ -7,7 +7,7 @@ Autor: Homero Thompson del Lago del Terror
 import subprocess
 from unittest.mock import MagicMock
 
-from src.gnome_tmux.tmux_client import RemoteTmuxClient
+from gnome_tmux.clients import RemoteTmuxClient
 
 
 class TestRemoteTmuxClientInit:
@@ -36,9 +36,7 @@ class TestRemoteTmuxClientConnection:
 
         assert client.is_connected() is False
 
-    def test_is_connected_socket_exists_check_fails(
-        self, mock_path_exists, mock_subprocess_run
-    ):
+    def test_is_connected_socket_exists_check_fails(self, mock_path_exists, mock_subprocess_run):
         """Test is_connected retorna False si ssh check falla."""
         mock_path_exists.return_value = True
         mock_subprocess_run.return_value = MagicMock(returncode=1)
@@ -123,9 +121,7 @@ class TestRemoteTmuxClientCreateDirectory:
         result = remote_client_disconnected.create_directory("/new/dir")
         assert result is False
 
-    def test_create_directory_success(
-        self, remote_client_connected, successful_ssh_result
-    ):
+    def test_create_directory_success(self, remote_client_connected, successful_ssh_result):
         """Test create_directory exitoso."""
         client, mock_run = remote_client_connected
         mock_run.return_value = successful_ssh_result
@@ -138,9 +134,7 @@ class TestRemoteTmuxClientCreateDirectory:
         mkdir_call = [c for c in calls if "mkdir -p" in str(c)]
         assert len(mkdir_call) > 0
 
-    def test_create_directory_failure(
-        self, remote_client_connected, failed_ssh_result
-    ):
+    def test_create_directory_failure(self, remote_client_connected, failed_ssh_result):
         """Test create_directory fallido."""
         client, mock_run = remote_client_connected
         mock_run.return_value = failed_ssh_result

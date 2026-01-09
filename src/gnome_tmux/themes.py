@@ -134,7 +134,7 @@ class ThemeManager:
 
     def __init__(self):
         self._css_provider: Gtk.CssProvider | None = None
-        self._current_theme = "default"
+        self._current_theme: str = "default"
         self._load_settings()
 
     def _load_settings(self):
@@ -143,7 +143,10 @@ class ThemeManager:
             try:
                 with open(CONFIG_FILE) as f:
                     settings = json.load(f)
-                    self._current_theme = settings.get("theme", "default")
+                    theme = settings.get("theme", "default")
+                    # Validar que sea string y que exista en THEMES
+                    if isinstance(theme, str) and theme in THEMES:
+                        self._current_theme = theme
             except (json.JSONDecodeError, OSError):
                 pass
 
