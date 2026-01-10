@@ -32,6 +32,10 @@ class RemoteTmuxClient:
         self.user = user
         self.port = port
         self._control_path = get_ssh_control_path(host, user, port)
+        # Caché de sesiones con TTL de 5 segundos
+        self._sessions_cache: list[Session] | None = None
+        self._cache_time: float = 0.0
+        self._cache_ttl: float = 5.0  # segundos
         logger.debug(f"RemoteTmuxClient creado para {user}@{host}:{port}")
 
     def _get_ssh_base(self) -> list[str]:
@@ -121,7 +125,16 @@ class RemoteTmuxClient:
         return result.returncode == 0
 
     def list_sessions(self) -> list[Session]:
-        """Lista todas las sesiones de tmux en el servidor remoto."""
+        """Lista sesiones con caché TTL de 5 segundos."""
+        import time
+
+        now = time.time()
+
+        # Retornar caché si es válido
+        if self._sessions_cache is not None and (now - self._cache_time) < self._cache_ttl:
+            return self._sessions_cache
+
+        # Fetch fresh
         result = self._run_remote(["list-sessions", "-F", SESSION_FORMAT])
 
         if result.returncode != 0:
@@ -130,7 +143,15 @@ class RemoteTmuxClient:
         sessions = parse_sessions_output(result.stdout)
         for session in sessions:
             session.windows = self._list_windows(session.name)
+
+        # Actualizar caché
+        self._sessions_cache = sessions
+        self._cache_time = now
         return sessions
+
+    def invalidate_cache(self):
+        """Invalida el caché de sesiones (llamar después de modificaciones)."""
+        self._sessions_cache = None
 
     def _list_windows(self, session_name: str) -> list[Window]:
         """Lista las ventanas de una sesión remota."""
