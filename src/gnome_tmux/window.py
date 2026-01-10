@@ -4,6 +4,13 @@ window.py - Ventana principal de gnome-tmux
 Autor: Homero Thompson del Lago del Terror
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from concurrent.futures import ThreadPoolExecutor
+
 import gi
 
 gi.require_version("Gtk", "4.0")
@@ -42,6 +49,10 @@ class MainWindow(Adw.ApplicationWindow):
         # Track remote connections: {f"{user}@{host}:{port}": RemoteTmuxClient}
         self._remote_clients: dict[str, RemoteTmuxClient] = {}
         self._closing = False  # Flag para indicar que la app se está cerrando
+        # Thread pool para operaciones remotas (lazy init)
+        self._remote_executor: ThreadPoolExecutor | None = None
+        # Debouncing para refreshes (evita refreshes múltiples consecutivos)
+        self._pending_refresh_id: int | None = None
 
         self.set_title("TmuxGUI")
         self.set_default_size(1000, 700)
@@ -55,8 +66,8 @@ class MainWindow(Adw.ApplicationWindow):
         # Cargar sesiones
         self._refresh_sessions()
 
-        # Auto-refresh cada 5 segundos
-        self._refresh_timeout_id = GLib.timeout_add_seconds(5, self._on_refresh_timeout)
+        # Auto-refresh cada 15 segundos (optimizado para reducir overhead)
+        self._refresh_timeout_id = GLib.timeout_add_seconds(15, self._on_refresh_timeout)
 
     def _setup_ui(self):
         """Configura la interfaz de usuario."""
@@ -318,6 +329,20 @@ class MainWindow(Adw.ApplicationWindow):
 
         return box
 
+    def _schedule_refresh(self, delay_ms: int = 150):
+        """Programa un refresh con debouncing (cancela refreshes pendientes)."""
+        # Cancelar refresh pendiente si existe
+        if self._pending_refresh_id is not None:
+            GLib.source_remove(self._pending_refresh_id)
+            self._pending_refresh_id = None
+
+        def do_refresh():
+            self._pending_refresh_id = None
+            self._refresh_sessions()
+            return False  # No repetir
+
+        self._pending_refresh_id = GLib.timeout_add(delay_ms, do_refresh)
+
     def _refresh_sessions(self):
         """Actualiza la lista de sesiones (locales y remotas)."""
         # Guardar estado de expansión y separar filas locales de remotas
@@ -396,41 +421,64 @@ class MainWindow(Adw.ApplicationWindow):
             self._refresh_remote_sessions_async()
 
     def _refresh_remote_sessions_async(self):
-        """Carga sesiones remotas en un thread separado."""
-        import threading
+        """Carga sesiones remotas usando ThreadPoolExecutor (max 3 concurrent)."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        # Lazy init del executor (reutiliza threads)
+        if self._remote_executor is None:
+            self._remote_executor = ThreadPoolExecutor(max_workers=3)
 
         # Copiar clientes para evitar modificaciones durante el thread
         clients_snapshot = list(self._remote_clients.items())
 
-        def fetch_remote():
+        def fetch_single_client(client_data: tuple) -> tuple | None:
+            """Fetch sessions de un solo cliente remoto."""
+            _, client = client_data
+            if self._closing:
+                return None
+            try:
+                if client.is_connected() and not client.is_tmux_available():
+                    return ("no_tmux", f"{client.user}@{client.host}")
+                remote_sessions = client.list_sessions()
+                return ("ok", client, remote_sessions)
+            except Exception:
+                return None
+
+        def on_all_complete(futures_list: list):
+            """Callback cuando todos los futures completan."""
             if self._closing:
                 return
 
             results = []
             hosts_without_tmux = []
 
-            for client_key, client in clients_snapshot:
-                if self._closing:
-                    return
+            for future in futures_list:
                 try:
-                    # Verificar si tmux está disponible en el host remoto
-                    if client.is_connected() and not client.is_tmux_available():
-                        hosts_without_tmux.append(f"{client.user}@{client.host}")
+                    result = future.result()
+                    if result is None:
                         continue
-
-                    remote_sessions = client.list_sessions()
-                    results.append((client, remote_sessions))
+                    if result[0] == "no_tmux":
+                        hosts_without_tmux.append(result[1])
+                    elif result[0] == "ok":
+                        results.append((result[1], result[2]))
                 except Exception:
-                    pass  # Ignorar errores de conexión
+                    pass
 
-            if self._closing:
-                return
-
-            # Actualizar UI en el hilo principal
             GLib.idle_add(self._add_remote_sessions_to_ui, results, hosts_without_tmux)
 
-        thread = threading.Thread(target=fetch_remote, daemon=True)
-        thread.start()
+        # Submit todas las tareas al pool (concurrente, max 3)
+        futures = [
+            self._remote_executor.submit(fetch_single_client, client_data)
+            for client_data in clients_snapshot
+        ]
+
+        # Usar un thread para esperar todos los futures y llamar callback
+        import threading
+
+        def wait_and_callback():
+            on_all_complete(futures)
+
+        threading.Thread(target=wait_and_callback, daemon=True).start()
 
     def _add_remote_sessions_to_ui(self, results: list, hosts_without_tmux: list | None = None):
         """Agrega sesiones remotas a la UI (llamar desde hilo principal)."""
@@ -1223,8 +1271,8 @@ class MainWindow(Adw.ApplicationWindow):
         """Maneja la selección de una ventana específica."""
         logger.info(f"🎯 Seleccionando ventana: {session_name}:{window_index}")
         self._attach_to_session(session_name, window_index)
-        # Refresh con pequeño delay para que tmux procese el attach
-        GLib.timeout_add(150, self._refresh_sessions)
+        # Refresh con debouncing para que tmux procese el attach
+        self._schedule_refresh(150)
 
     def _on_rename_session_requested(self, row, session_name: str):
         """Muestra diálogo para renombrar sesión."""
@@ -1333,9 +1381,8 @@ class MainWindow(Adw.ApplicationWindow):
     def _on_exit_window_requested(self, row, session_name: str, window_index: int):
         """Envía exit a una ventana (cierre limpio)."""
         self.tmux.exit_window(session_name, window_index)
-        # Refresh rápido + respaldo para shells lentos
-        GLib.timeout_add(150, self._refresh_sessions)
-        GLib.timeout_add(1000, self._refresh_sessions)
+        # Refresh con debouncing (delay mayor para shells lentos)
+        self._schedule_refresh(500)
 
     def _on_swap_windows_requested(self, row, session_name: str, src_index: int, dst_index: int):
         """Intercambia dos ventanas."""

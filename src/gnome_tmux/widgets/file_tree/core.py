@@ -313,12 +313,8 @@ class FileTree(Gtk.Box):
                 self._load_directory_recursive(self._root_path, 0)
 
     def _clear_list_box(self):
-        """Limpia todas las filas del list box."""
-        while True:
-            row = self._list_box.get_row_at_index(0)
-            if row is None:
-                break
-            self._list_box.remove(row)
+        """Limpia todas las filas del list box (O(1) con GTK4)."""
+        self._list_box.remove_all()
 
     def _setup_search_options_menu(self):
         """Configura el menú de opciones de búsqueda."""
@@ -412,8 +408,7 @@ class FileTree(Gtk.Box):
         """Busca archivos por nombre usando find."""
         return search_by_name(self._root_path, query)
 
-    def _search_by_name(self, query: str) -> list[Path]:
-        """Busca archivos por nombre usando find."""
+    def _search_by_regex(self, query: str) -> list[Path]:
         """Busca archivos por patrón regex."""
         return search_by_regex(self._root_path, query)
 
@@ -474,9 +469,19 @@ class FileTree(Gtk.Box):
             self._load_tree()
 
     def _load_directory_recursive(self, path: Path, depth: int):
-        """Carga un directorio y sus hijos expandidos recursivamente."""
+        """Carga un directorio y sus hijos expandidos recursivamente.
+
+        Usa os.scandir para mejor performance (evita doble stat() por archivo).
+        """
+        import os
+
         try:
-            entries = sorted(path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
+            # scandir retorna DirEntry con is_dir() cacheado del syscall original
+            with os.scandir(path) as scanner:
+                entries = sorted(
+                    scanner,
+                    key=lambda e: (not e.is_dir(follow_symlinks=False), e.name.lower()),
+                )
         except PermissionError:
             if depth == 0:
                 row = self._create_error_row("Permission denied", depth)
@@ -488,10 +493,12 @@ class FileTree(Gtk.Box):
             if entry.name.startswith("."):
                 continue
 
-            is_dir = entry.is_dir()
-            is_expanded = str(entry) in self._expanded_dirs
+            # is_dir() usa stat cacheado del DirEntry (no hace syscall adicional)
+            is_dir = entry.is_dir(follow_symlinks=False)
+            entry_path = Path(entry.path)
+            is_expanded = str(entry_path) in self._expanded_dirs
 
-            row = FileTreeRow(entry, depth, is_expanded)
+            row = FileTreeRow(entry_path, depth, is_expanded)
             row.connect("toggle-expand", self._on_toggle_expand)
             row.connect("copy-requested", self._on_copy_requested)
             row.connect("paste-requested", self._on_paste_requested)
@@ -505,7 +512,7 @@ class FileTree(Gtk.Box):
 
             # Si es directorio expandido, cargar hijos
             if is_dir and is_expanded:
-                self._load_directory_recursive(entry, depth + 1)
+                self._load_directory_recursive(entry_path, depth + 1)
 
     def _load_remote_directory_recursive(self, path: str, depth: int):
         """Carga un directorio remoto y sus hijos expandidos recursivamente."""
