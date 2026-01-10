@@ -32,6 +32,16 @@ from .themes import theme_manager
 from .widgets import FileTree, SessionRow, TerminalView
 from .widgets.remote_session_row import RemoteSessionRow
 
+# UI Constants
+WINDOW_DEFAULT_WIDTH = 1000
+WINDOW_DEFAULT_HEIGHT = 700
+SIDEBAR_DEFAULT_WIDTH = 250
+
+# Timing Constants (milliseconds unless noted)
+AUTO_REFRESH_INTERVAL_SECONDS = 15
+REFRESH_DEBOUNCE_MS = 150
+TMUX_CHECK_DELAY_MS = 2000
+
 
 class MainWindow(Adw.ApplicationWindow):
     """Ventana principal de gnome-tmux."""
@@ -55,7 +65,7 @@ class MainWindow(Adw.ApplicationWindow):
         self._pending_refresh_id: int | None = None
 
         self.set_title("TmuxGUI")
-        self.set_default_size(1000, 700)
+        self.set_default_size(WINDOW_DEFAULT_WIDTH, WINDOW_DEFAULT_HEIGHT)
 
         # Aplicar tema guardado
         theme_manager.apply_saved_theme()
@@ -67,7 +77,9 @@ class MainWindow(Adw.ApplicationWindow):
         self._refresh_sessions()
 
         # Auto-refresh cada 15 segundos (optimizado para reducir overhead)
-        self._refresh_timeout_id = GLib.timeout_add_seconds(15, self._on_refresh_timeout)
+        self._refresh_timeout_id = GLib.timeout_add_seconds(
+            AUTO_REFRESH_INTERVAL_SECONDS, self._on_refresh_timeout
+        )
 
     def _setup_ui(self):
         """Configura la interfaz de usuario."""
@@ -152,7 +164,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
         self.paned.set_shrink_start_child(False)
         self.paned.set_shrink_end_child(False)
-        self.paned.set_position(250)  # Ancho inicial del sidebar
+        self.paned.set_position(SIDEBAR_DEFAULT_WIDTH)
 
         # Contenedor izquierdo: sessions + file tree (vertical)
         self.left_paned = Gtk.Paned(orientation=Gtk.Orientation.VERTICAL)
@@ -329,7 +341,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         return box
 
-    def _schedule_refresh(self, delay_ms: int = 150):
+    def _schedule_refresh(self, delay_ms: int = REFRESH_DEBOUNCE_MS):
         """Programa un refresh con debouncing (cancela refreshes pendientes)."""
         # Cancelar refresh pendiente si existe
         if self._pending_refresh_id is not None:
@@ -1167,7 +1179,7 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Polling cada 2 segundos hasta encontrar sesiones
         if not self._closing:
-            GLib.timeout_add(2000, do_check)
+            GLib.timeout_add(TMUX_CHECK_DELAY_MS, do_check)
 
     def _on_remote_window_selected(
         self, row, session_name: str, window_index: int, host: str, user: str, port: str
